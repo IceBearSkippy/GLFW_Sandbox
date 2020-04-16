@@ -66,11 +66,19 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
+    // Catalina is stuck at OpenGL 4.1
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    //glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
- 
+
+    // you need these two for mac!
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
     GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter2 - program1", NULL, NULL);
     glfwMakeContextCurrent(window);
+
+    //glewExperimental = GL_TRUE;
 
     if (glewInit() != GLEW_OK) {
         exit(EXIT_FAILURE);
