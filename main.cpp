@@ -16,10 +16,10 @@
 //#include "Model.h"
 
 // GLM Mathemtics
-//#include <glm/glm.hpp>
-//#include <glm/gtc/matrix_transform.hpp>
-//#include <glm/gtc/type_ptr.hpp>
-
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 // Other Libs -- SOIL
 //#include "SOIL2.h"
 #include "Utilities.h"
@@ -33,30 +33,37 @@ GLuint vao[numVAOs];
 
 float x = 0.0f;
 float inc = 0.01f;
+mat4 rotateMat;
 
 void init(GLFWwindow* window) {
     renderingProgram = Utilities::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
     glGenVertexArrays(numVAOs, vao);
     glBindVertexArray(vao[0]);
+    rotateMat = Utilities::buildRotateX(10);
+    cout << glm::to_string(rotateMat) << endl;
 }
 
 void display(GLFWwindow* window, double currentTime) {
     glClear(GL_DEPTH_BUFFER_BIT);
     glClearColor(1.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT); // this references the color buffer that contains the pixels as they are rendered
- 
+
     glUseProgram(renderingProgram);
-    
+
     x += inc;
-    if (x > 1.0f) {
-        inc = -0.01f;
+    if (x > 30.0f) {
+        inc = -1.0f;
     }
-    if (x < -1.0f) {
-        inc = 0.01f;
+    if (x < -30.0f) {
+        inc = 1.0f;
     }
-    GLuint offsetLoc = glGetUniformLocation(renderingProgram, "offset");
-    glProgramUniform1f(renderingProgram, offsetLoc, x); // gett the variable and setting it to x
-    
+
+    //GLuint offsetLoc = glGetUniformLocation(renderingProgram, "offset");
+    //glProgramUniform1f(renderingProgram, offsetLoc, 0); // get the variable and setting it to x
+
+    rotateMat = Utilities::buildRotateY(x);
+    GLuint tranformationLoc = glGetUniformLocation(renderingProgram, "transformation");
+    glProgramUniformMatrix4fv(renderingProgram, tranformationLoc, 1, GL_FALSE, glm::value_ptr(rotateMat));
     //glPointSize(30.0f);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -66,19 +73,11 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
-    // Catalina is stuck at OpenGL 4.1
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    //glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
-    // you need these two for mac!
-    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter2 - program1", NULL, NULL);
     glfwMakeContextCurrent(window);
-
-    //glewExperimental = GL_TRUE;
 
     if (glewInit() != GLEW_OK) {
         exit(EXIT_FAILURE);
@@ -86,7 +85,7 @@ int main(void) {
     glfwSwapInterval(1);
 
     init(window); // glew must be initialized before init
-    
+
     while (!glfwWindowShouldClose(window)) {
         display(window, glfwGetTime());
         glfwSwapBuffers(window); // GLFW windows are double-buffered by default
