@@ -37,9 +37,9 @@ GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
 //allocate variables used in display function
-GLuint mvLoc, projLoc;
+GLuint mLoc, vLoc, projLoc, tfLoc;
 int width, height;
-float aspect;
+float aspect, timeFactor;
 glm::mat4 pMat, vMat, mMat, mvMat, tMat, rMat;
 
 void setupVertices(void) {
@@ -81,38 +81,27 @@ void display(GLFWwindow* window, double currentTime) {
     glUseProgram(renderingProgram);
 
     // get the uniform variables for MV and projection matrices
-    mvLoc = glGetUniformLocation(renderingProgram, "mv_matrix");
+    mLoc = glGetUniformLocation(renderingProgram, "m_matrix");
+    vLoc = glGetUniformLocation(renderingProgram, "v_matrix");
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
+    tfLoc = glGetUniformLocation(renderingProgram, "timeFactor");
 
     //build perspective matrix
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
+    
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
-
-    //build view, model and model-view matrix
-    vMat = glm::translate(glm::mat4(1.0f), glm::vec3(-cameraX, -cameraY, -cameraZ));
-
-    // use current time to compute different tranlations x, y and z
-    //tMat = glm::translate(glm::mat4(1.0f),
-    //    glm::vec3(sin(0.35f * currentTime) * 2.0f, cos(0.52f * currentTime) * 2.0f, sin(0.7f * currentTime) * 2.0f));
-    tMat = Utilities::buildTranslate(sin(0.35f * currentTime) * 2.0f, cos(0.52f * currentTime) * 2.0f, sin(0.7f * currentTime) * 2.0f);
-
-    //rMat = glm::rotate(glm::mat4(1.0f), 1.75f * (float)currentTime, glm::vec3(0.0f, 1.0f, 0.0f));
-    //rMat = glm::rotate(rMat, 1.75f * (float)currentTime, glm::vec3(1.0f, 0.0f, 0.0f));
-    //rMat = glm::rotate(rMat, 1.75f * (float)currentTime, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    rMat = Utilities::buildRotateX(1.75 * (float)currentTime) * Utilities::buildRotateY(1.75 * (float)currentTime) * Utilities::buildRotateZ(1.75 * (float)currentTime);
-
-    // when vertex is multiplayed by this matrix, it works right to left
-    // eg rotation will be applied first and then translation
-    mMat = tMat * rMat;
-    mvMat = vMat * mMat;
-
-    // copy perspective/MV matrices to uniform matrix variables
-    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvMat));
+    vMat = glm::translate(glm::mat4(1.0f), glm::vec3(-cameraX, -cameraY, -cameraZ-412));
+    mMat = glm::mat4(1.0f);
+    glUniformMatrix4fv(mLoc, 1, GL_FALSE, glm::value_ptr(mMat));
+    glUniformMatrix4fv(vLoc, 1, GL_FALSE, glm::value_ptr(vMat));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
+    
+    timeFactor = ((float)currentTime);
+    //cout << timeFactor << endl;
+    glUniform1f(tfLoc, (float)timeFactor);
 
-    //associate VBO with corresponding vertex attribute in vertex shader
+    // NEVER FORGET TO BIND BUFFER
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
@@ -120,7 +109,8 @@ void display(GLFWwindow* window, double currentTime) {
     //Adjust OpenGL settings / draw
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    //glDrawArrays(GL_TRIANGLES, 0, 36);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 100000);
 
 }
 int main(void) {
