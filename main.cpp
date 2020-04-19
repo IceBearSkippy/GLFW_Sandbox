@@ -31,6 +31,9 @@ using namespace std;
 #define numVAOs 1
 #define numVBOs 2
 
+
+
+//allocate variables used in display function
 float cameraX, cameraY, cameraZ;
 float cubeLocX, cubeLocY, cubeLocZ;
 float pyrLocX, pyrLocY, pyrLocZ;
@@ -38,12 +41,18 @@ GLuint renderingProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
-//allocate variables used in display function
 GLuint mvLoc, projLoc;
 int width, height;
 float aspect;
-glm::mat4 pMat, vMat, mMat, mvMat, tMat, rMat;
+glm::mat4 pMat, vMat, mMat, mvMat;
 stack<glm::mat4> mvStack;
+
+//function prototypes
+void setupVertices(void);
+void init(GLFWwindow* window);
+void display(GLFWwindow* window, double currentTime);
+void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
+int main(void);
 
 void setupVertices(void) {
     float cubePositions[108] = {
@@ -86,6 +95,9 @@ void init(GLFWwindow* window) {
     renderingProgram = Utilities::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
     cameraX = 0.0f; cameraY = 0.0f; cameraZ = 8.0f;
     setupVertices();
+    glfwGetFramebufferSize(window, &width, &height);
+    aspect = (float)width / (float)height;
+    pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -98,10 +110,6 @@ void display(GLFWwindow* window, double currentTime) {
     mvLoc = glGetUniformLocation(renderingProgram, "mv_matrix");
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
 
-    //build perspective matrix
-    glfwGetFramebufferSize(window, &width, &height);
-    aspect = (float)width / (float)height;
-    pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
     vMat = glm::translate(glm::mat4(1.0f), glm::vec3(-cameraX, -cameraY, -cameraZ -4));
 
     //planetary system transform create and draw
@@ -165,6 +173,12 @@ void display(GLFWwindow* window, double currentTime) {
     }
 }
 
+void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight) {
+    aspect = (float)newWidth / (float)newHeight;
+    glViewport(0, 0, newWidth, newHeight);
+    pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f);
+}
+
 int main(void) {
     if (!glfwInit()) {
         exit(EXIT_FAILURE);
@@ -180,6 +194,8 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
     glfwSwapInterval(1);
+
+    glfwSetWindowSizeCallback(window, window_reshape_callback);
 
     init(window); // glew must be initialized before init
 

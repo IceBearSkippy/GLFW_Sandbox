@@ -15,6 +15,20 @@ using namespace std;
 using namespace glm;
 
 namespace Utilities {
+    
+    //shader/error handler
+    string readShaderSource(const char* filePath);
+    void printShaderLog(GLuint shader);
+    bool checkOpenGLError();
+    GLuint createShaderProgram(const char* vp, const char* fp);
+
+    //matrix functions
+    mat4 buildRotateX(float rad);
+    mat4 buildRotateY(float rad);
+    mat4 buildRotateZ(float rad);
+    mat4 buildTranslate(float x, float y, float z);
+    mat4 buildScale(float x, float y, float z);
+
 
     string readShaderSource(const char* filePath) {
         string content;
