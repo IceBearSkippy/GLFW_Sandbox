@@ -141,11 +141,15 @@ void display(GLFWwindow* window, double currentTime) {
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
 
+    glEnable(GL_CULL_FACE);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+    //mishandling the front face declaration leads to showing interior of object
+    //instead of exterior
+    glFrontFace(GL_CW);  // the cube vertices have clockwise winding order
     glDrawArrays(GL_TRIANGLES, 0, 36);
     mvStack.pop();  // remove the planet's axial rotation from stack
 
@@ -163,6 +167,7 @@ void display(GLFWwindow* window, double currentTime) {
     glEnableVertexAttribArray(0);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+    glFrontFace(GL_CCW);  // the pyramid vertices have counter-clockwise winding order
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     //remove the moon scale/rotation/position, planet position, sun_position
