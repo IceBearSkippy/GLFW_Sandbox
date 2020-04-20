@@ -23,6 +23,7 @@ namespace Utilities {
     GLuint createShaderProgram(const char* vp, const char* fp);
 
     //matrix functions
+    mat4 buildCameraLocation(vec3 camera, vec3 uComp, vec3 vComp, vec3 nComp);
     mat4 buildRotateX(float rad);
     mat4 buildRotateY(float rad);
     mat4 buildRotateZ(float rad);
@@ -126,6 +127,17 @@ namespace Utilities {
         return vfProgram;
     }
 
+    mat4 buildCameraLocation(vec3 camera, vec3 uComp, vec3 vComp, vec3 nComp) {
+        mat4 rotMat = mat4(
+            uComp.x, uComp.y, uComp.z, 0.0,
+            vComp.x, vComp.y, vComp.z, 0.0,
+            nComp.x, nComp.y, nComp.z, 0.0,
+              0.0,     0.0,     0.0,   1.0
+        );
+        
+        mat4 camMat = buildTranslate(camera.x, camera.y, camera.z);
+        return camMat * rotMat;
+    }
 
     // Transformation matrices
     mat4 buildTranslate(float x, float y, float z) {

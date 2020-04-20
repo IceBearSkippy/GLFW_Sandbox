@@ -34,7 +34,7 @@ using namespace std;
 
 
 //allocate variables used in display function
-float cameraX, cameraY, cameraZ;
+glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN;
 float cubeLocX, cubeLocY, cubeLocZ;
 float pyrLocX, pyrLocY, pyrLocZ;
 GLuint renderingProgram;
@@ -93,7 +93,12 @@ void setupVertices(void) {
 
 void init(GLFWwindow* window) {
     renderingProgram = Utilities::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
-    cameraX = 0.0f; cameraY = 0.0f; cameraZ = 8.0f;
+    cameraVec = glm::vec3(0.0f, 0.0f, -12.0f);
+    // N is the lookat vector (try staring at an object with it)
+    cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
+    cameraRotV = normalize(glm::vec3(1.0f, 1.0f, 0.0f));
+    cameraRotN = normalize(glm::vec3(0.0f, 0.0f, 1.0f));
+
     setupVertices();
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
@@ -110,7 +115,7 @@ void display(GLFWwindow* window, double currentTime) {
     mvLoc = glGetUniformLocation(renderingProgram, "mv_matrix");
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
 
-    vMat = glm::translate(glm::mat4(1.0f), glm::vec3(-cameraX, -cameraY, -cameraZ -4));
+    vMat = Utilities::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
 
     //planetary system transform create and draw
     mvStack.push(vMat);
