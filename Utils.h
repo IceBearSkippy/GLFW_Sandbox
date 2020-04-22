@@ -42,6 +42,11 @@ namespace Utils {
         if (textureID == 0) {
             cout << "could not find texture file: " << texImagePath << endl;
         }
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        // can make it an option to change the type of mipmapping
+        // just with glTexParametri (can be done in display())
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //trilinear filtering
+        glGenerateMipmap(GL_TEXTURE_2D);
         return textureID;
     }
 
