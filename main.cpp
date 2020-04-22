@@ -194,8 +194,14 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
+    // for mac -- Catalina stuck at 4.1
+    // would need to change shader versions as well
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
+    //you need these two for mac
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter 4 - Matrix Stacks", NULL, NULL);
     glfwMakeContextCurrent(window);
