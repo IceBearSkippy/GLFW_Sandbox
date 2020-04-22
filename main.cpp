@@ -23,24 +23,21 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
 // Other Libs -- SOIL
-//#include "SOIL2.h"
-#include "Utilities.h"
+#include "SOIL2.h"
+#include "Utils.h"
 
 using namespace std;
 
 #define numVAOs 1
 #define numVBOs 2
 
-
-
 //allocate variables used in display function
 glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN;
-float cubeLocX, cubeLocY, cubeLocZ;
-float pyrLocX, pyrLocY, pyrLocZ;
 GLuint renderingProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
+GLuint brickTexture;
 GLuint mvLoc, projLoc;
 int width, height;
 float aspect;
@@ -55,20 +52,6 @@ void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
 int main(void);
 
 void setupVertices(void) {
-    float cubePositions[108] = {
-        -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
-        1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
-        1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,
-        -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f
-    };
 
     float pyramidPositions[54] = {
         -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
@@ -79,30 +62,40 @@ void setupVertices(void) {
         1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f
     };
 
+    // each vertex corresponds to a texture coordinate
+    // 54 vertices * 2 coordinates / 3 vertices --> num of tex coords
+    // cut out texture based of tex coords from 0 to 1
+    float pyrTexCoords[36] = {
+        0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,    0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,  // top and right faces
+        0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,    0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,  // back and left faces
+        0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f,    1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f   //base triangles
+    };
+
     glGenVertexArrays(1, vao);
     glBindVertexArray(vao[0]);
     glGenBuffers(numVBOs, vbo); // two vbos are created
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubePositions), cubePositions, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pyramidPositions), pyramidPositions, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pyramidPositions), pyramidPositions, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pyrTexCoords), pyrTexCoords, GL_STATIC_DRAW);
 
 }
 
 void init(GLFWwindow* window) {
-    renderingProgram = Utilities::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
-    cameraVec = glm::vec3(0.0f, 0.0f, -12.0f);
+    renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
+    cameraVec = glm::vec3(0.0f, 0.0f, -6.0f);
     // N is the lookat vector (try staring at an object with it)
     cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
-    cameraRotV = normalize(glm::vec3(1.0f, 1.0f, 0.0f));
+    cameraRotV = normalize(glm::vec3(0.0f, 1.0f, 0.0f));
     cameraRotN = normalize(glm::vec3(0.0f, 0.0f, 1.0f));
 
     setupVertices();
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
+    brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -115,34 +108,17 @@ void display(GLFWwindow* window, double currentTime) {
     mvLoc = glGetUniformLocation(renderingProgram, "mv_matrix");
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
 
-    vMat = Utilities::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
+    vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
 
     //planetary system transform create and draw
     mvStack.push(vMat);
 
-    //-------------------- pyramid == sun -----------
     mvStack.push(mvStack.top());
-    mvStack.top() *= Utilities::buildTranslate(0.0f, 0.0f, 0.0f);
+    mvStack.top() *= Utils::buildTranslate(0.0f, 0.0f, 0.0f);
     mvStack.push(mvStack.top());
-    mvStack.top() *= Utilities::buildRotateX((float)currentTime);
+    mvStack.top() *= Utils::buildRotateY((float)currentTime);
+    mvStack.top() *= Utils::buildRotateX((float)currentTime/2);
 
-    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glDrawArrays(GL_TRIANGLES, 0, 18);
-    mvStack.pop();       // remove the sun's axial rotation
-
-    //-------------------- cube == planet -----------
-    mvStack.push(mvStack.top());
-    mvStack.top() *= Utilities::buildTranslate(sin((float)currentTime) * 4.0f, 0.0f, 
-        cos((float)currentTime) * 4.0f);
-    mvStack.push(mvStack.top());
-    mvStack.top() *= Utilities::buildRotateY((float)currentTime);
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
 
@@ -150,30 +126,24 @@ void display(GLFWwindow* window, double currentTime) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
+
+    //bind the related texture immediately after
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+
+    //specify texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    //mishandling the front face declaration leads to showing interior of object
-    //instead of exterior
-    glFrontFace(GL_CW);  // the cube vertices have clockwise winding order
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    mvStack.pop();  // remove the planet's axial rotation from stack
+    glFrontFace(GL_CCW);  // If you want to enable culling...
+    glDrawArrays(GL_TRIANGLES, 0, 18);
 
-    //-------------------- smaller cube == moon -------------
-    mvStack.push(mvStack.top());
-    mvStack.top() *= Utilities::buildTranslate(0.0f, sin((float)currentTime) * 2.0f,
-        cos((float)currentTime) * 2.0f);
-    mvStack.top() *= Utilities::buildRotateZ((float)currentTime);// moon rotation
-    mvStack.top() *= Utilities::buildScale(0.25f, 0.25f, 0.25f); //make the moon smaller
-    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glFrontFace(GL_CCW);  // the pyramid vertices have counter-clockwise winding order
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+   
+    
 
     //remove the moon scale/rotation/position, planet position, sun_position
     // and view matrices from stack
