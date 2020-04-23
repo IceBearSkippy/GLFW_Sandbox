@@ -24,12 +24,14 @@
 #include <glm/gtx/string_cast.hpp>
 // Other Libs -- SOIL
 #include "SOIL2.h"
+
 #include "Utils.h"
+#include "Sphere.h"
 
 using namespace std;
 
 #define numVAOs 1
-#define numVBOs 2
+#define numVBOs 3
 
 //allocate variables used in display function
 glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN;
@@ -37,6 +39,7 @@ GLuint renderingProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
+Sphere mySphere(48);
 GLuint brickTexture;
 GLuint mvLoc, projLoc;
 int width, height;
@@ -53,33 +56,41 @@ int main(void);
 
 void setupVertices(void) {
 
-    float pyramidPositions[54] = {
-        -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f,
-        1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f
-    };
+    vector<int> ind = mySphere.getIndices();
+    vector<glm::vec3> vert = mySphere.getVertices();
+    vector<glm::vec2> tex = mySphere.getTexCoords();
+    vector<glm::vec3> norm = mySphere.getNormals();
 
-    // each vertex corresponds to a texture coordinate
-    // 54 vertices * 2 coordinates / 3 vertices --> num of tex coords
-    // cut out texture based of tex coords from 0 to 1
-    float pyrTexCoords[36] = {
-        0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,    0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,  // top and right faces
-        0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,    0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f,  // back and left faces
-        0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f,    1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f   //base triangles
-    };
+    vector<float> pvalues; //vertex positions
+    vector<float> tvalues; //texture coordinates
+    vector<float> nvalues; //normal vectors
+
+    int numIndices = mySphere.getNumIndices();
+    for (int i = 0; i < numIndices; i++) {
+        pvalues.push_back((vert[ind[i]]).x);
+        pvalues.push_back((vert[ind[i]]).y);
+        pvalues.push_back((vert[ind[i]]).z);
+
+        tvalues.push_back((tex[ind[i]]).s);
+        tvalues.push_back((tex[ind[i]]).t);
+
+        nvalues.push_back((norm[ind[i]]).x);
+        nvalues.push_back((norm[ind[i]]).y);
+        nvalues.push_back((norm[ind[i]]).z);
+    }
 
     glGenVertexArrays(1, vao);
     glBindVertexArray(vao[0]);
-    glGenBuffers(numVBOs, vbo); // two vbos are created
+    glGenBuffers(numVBOs, vbo); // three vbos are created
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pyramidPositions), pyramidPositions, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, pvalues.size() * 4, &pvalues[0], GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pyrTexCoords), pyrTexCoords, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, tvalues.size() * 4, &tvalues[0], GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glBufferData(GL_ARRAY_BUFFER, nvalues.size() * 4, &nvalues[0], GL_STATIC_DRAW);
 
 }
 
@@ -136,11 +147,14 @@ void display(GLFWwindow* window, double currentTime) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, brickTexture);
 
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(2);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glFrontFace(GL_CCW);  // If you want to enable culling...
-    glDrawArrays(GL_TRIANGLES, 0, 18);
+    glDrawArrays(GL_TRIANGLES, 0, mySphere.getNumIndices());
 
    
     
