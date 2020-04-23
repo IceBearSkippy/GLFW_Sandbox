@@ -95,7 +95,7 @@ void init(GLFWwindow* window) {
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
-    brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
+    brickTexture = Utils::loadTexture("./res/images/dopefish.jpg");
 }
 
 void display(GLFWwindow* window, double currentTime) {

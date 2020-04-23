@@ -42,11 +42,27 @@ namespace Utils {
         if (textureID == 0) {
             cout << "could not find texture file: " << texImagePath << endl;
         }
-        glBindTexture(GL_TEXTURE_2D, textureID);
         // can make it an option to change the type of mipmapping
         // just with glTexParametri (can be done in display())
+        glBindTexture(GL_TEXTURE_2D, textureID);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //trilinear filtering
         glGenerateMipmap(GL_TEXTURE_2D);
+
+        // if anisotropic filtering -- checks if graphics card supports it
+        if (glewIsSupported("GL_EXT_texture_filter_anisotropic")) {
+            GLfloat anisoSetting = 0.0f;
+            glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &anisoSetting); // sets the maxium degree of sampling
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisoSetting);
+        }
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT); // s is horizontal
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT); // t is vertical
+
+        // Clamp to border could be useful for adjusting a texture
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        //float redColor[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+        //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, redColor); 
         return textureID;
     }
 
