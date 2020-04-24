@@ -27,11 +27,12 @@
 
 #include "Utils.h"
 #include "Sphere.h"
+#include "Torus.h"
 
 using namespace std;
 
 #define numVAOs 1
-#define numVBOs 3
+#define numVBOs 4
 
 //allocate variables used in display function
 glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN;
@@ -40,6 +41,8 @@ GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
 Sphere mySphere(48);
+Torus myTorus(0.5f, 0.2f, 48);
+
 GLuint brickTexture;
 GLuint mvLoc, projLoc;
 int width, height;
@@ -56,32 +59,32 @@ int main(void);
 
 void setupVertices(void) {
 
-    vector<int> ind = mySphere.getIndices();
-    vector<glm::vec3> vert = mySphere.getVertices();
-    vector<glm::vec2> tex = mySphere.getTexCoords();
-    vector<glm::vec3> norm = mySphere.getNormals();
+    vector<int> ind = myTorus.getIndices();
+    vector<glm::vec3> vert = myTorus.getVertices();
+    vector<glm::vec2> tex = myTorus.getTexCoords();
+    vector<glm::vec3> norm = myTorus.getNormals();
 
     vector<float> pvalues; //vertex positions
     vector<float> tvalues; //texture coordinates
     vector<float> nvalues; //normal vectors
 
-    int numIndices = mySphere.getNumIndices();
-    for (int i = 0; i < numIndices; i++) {
-        pvalues.push_back((vert[ind[i]]).x);
-        pvalues.push_back((vert[ind[i]]).y);
-        pvalues.push_back((vert[ind[i]]).z);
+    int numVertices = myTorus.getNumVertices();
+    for (int i = 0; i < numVertices; i++) {
+        pvalues.push_back(vert[i].x);
+        pvalues.push_back(vert[i].y);
+        pvalues.push_back(vert[i].z);
 
-        tvalues.push_back((tex[ind[i]]).s);
-        tvalues.push_back((tex[ind[i]]).t);
+        tvalues.push_back(tex[i].s);
+        tvalues.push_back(tex[i].t);
 
-        nvalues.push_back((norm[ind[i]]).x);
-        nvalues.push_back((norm[ind[i]]).y);
-        nvalues.push_back((norm[ind[i]]).z);
+        nvalues.push_back(norm[i].x);
+        nvalues.push_back(norm[i].y);
+        nvalues.push_back(norm[i].z);
     }
 
     glGenVertexArrays(1, vao);
     glBindVertexArray(vao[0]);
-    glGenBuffers(numVBOs, vbo); // three vbos are created
+    glGenBuffers(numVBOs, vbo); // four vbos are created
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glBufferData(GL_ARRAY_BUFFER, pvalues.size() * 4, &pvalues[0], GL_STATIC_DRAW);
@@ -92,11 +95,14 @@ void setupVertices(void) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
     glBufferData(GL_ARRAY_BUFFER, nvalues.size() * 4, &nvalues[0], GL_STATIC_DRAW);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]); // indices
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, ind.size() * 4, &ind[0], GL_STATIC_DRAW);
+
 }
 
 void init(GLFWwindow* window) {
     renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
-    cameraVec = glm::vec3(0.0f, 0.0f, -6.0f);
+    cameraVec = glm::vec3(0.0f, 0.0f, -3.0f);
     // N is the lookat vector (try staring at an object with it)
     cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
     cameraRotV = normalize(glm::vec3(0.0f, 1.0f, 0.0f));
@@ -106,7 +112,7 @@ void init(GLFWwindow* window) {
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
-    brickTexture = Utils::loadTexture("./res/images/dopefish.jpg");
+    brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -129,6 +135,7 @@ void display(GLFWwindow* window, double currentTime) {
     mvStack.push(mvStack.top());
     mvStack.top() *= Utils::buildRotateY((float)currentTime);
     mvStack.top() *= Utils::buildRotateX((float)currentTime/2);
+    mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
 
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
@@ -151,11 +158,14 @@ void display(GLFWwindow* window, double currentTime) {
     glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glFrontFace(GL_CCW);  // If you want to enable culling...
-    glDrawArrays(GL_TRIANGLES, 0, mySphere.getNumIndices());
-
+    glFrontFace(GL_CCW);
+    glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
+    //glDrawArrays(GL_TRIANGLES, 0, mySphere.getNumIndices());
+    
    
     
 
@@ -187,7 +197,7 @@ int main(void) {
     //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter 4 - Matrix Stacks", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter 6", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     if (glewInit() != GLEW_OK) {
