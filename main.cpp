@@ -124,7 +124,8 @@ void setupVertices(void) {
 
 void init(GLFWwindow* window) {
     //renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
-    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
+    //renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
+    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting_pho.vert", "./res/shaders/lighting_pho.frag");
     cameraVec = glm::vec3(0.0f, 0.0f, -2.0f);
     // N is the lookat vector (try staring at an object with it)
     cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
@@ -157,9 +158,9 @@ void display(GLFWwindow* window, double currentTime) {
     mvStack.push(mvStack.top());
     mvStack.top() *= Utils::buildTranslate(0.0f, 0.0f, 0.0f);
     mvStack.push(mvStack.top());
-    //mvStack.top() *= Utils::buildRotateY((float)currentTime);
+    mvStack.top() *= Utils::buildRotateY((float)currentTime);
     mvStack.top() *= Utils::buildRotateX(-0.7f);
-    //mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
+    mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
 
     //set up lights based on the current light's position
     currentLightPos = glm::vec3(initialLightLoc.x, initialLightLoc.y, initialLightLoc.z);
