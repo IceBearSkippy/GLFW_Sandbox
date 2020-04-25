@@ -28,6 +28,7 @@
 #include "Utils.h"
 #include "Sphere.h"
 #include "Torus.h"
+//#include "ImportedModel.h" <-- this is too basic
 
 using namespace std;
 
@@ -42,13 +43,33 @@ GLuint vbo[numVBOs];
 
 Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
-
+//ImportedModel myModel("./res/models/bleh.obj");
 GLuint brickTexture;
-GLuint mvLoc, projLoc;
+GLuint mvLoc, projLoc, nLoc;
 int width, height;
 float aspect;
-glm::mat4 pMat, vMat, mMat, mvMat;
+
+GLuint globalAmbLoc, ambLoc, diffLoc, specLoc, posLoc, mAmbLoc, mDiffLoc, mSpecLoc, mShiLoc;
+glm::mat4 pMat, vMat, mMat, mvMat, invTrMat;
 stack<glm::mat4> mvStack;
+glm::vec3 currentLightPos, lightPosV; //light position as Vec3f in both model and view space
+float lightPos[3];  // light position as float array
+
+//inital light location
+glm::vec3 initialLightLoc = glm::vec3(5.0f, 2.0f, 2.0f);
+
+//white light properties
+float globalAmbient[4] = { 0.7f, 0.7f, 0.7f, 1.0f };
+float lightAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+float lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+float lightSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+//gold material properties
+float* matAmb = Utils::goldAmbient();
+float* matDif = Utils::goldDiffuse();
+float* matSpe = Utils::goldSpecular();
+float matShi = Utils::goldShininess();
+
 
 //function prototypes
 void setupVertices(void);
@@ -56,6 +77,7 @@ void init(GLFWwindow* window);
 void display(GLFWwindow* window, double currentTime);
 void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
 int main(void);
+void installLights(glm::mat4);
 
 void setupVertices(void) {
 
@@ -101,8 +123,9 @@ void setupVertices(void) {
 }
 
 void init(GLFWwindow* window) {
-    renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
-    cameraVec = glm::vec3(0.0f, 0.0f, -3.0f);
+    //renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
+    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
+    cameraVec = glm::vec3(0.0f, 0.0f, -2.0f);
     // N is the lookat vector (try staring at an object with it)
     cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
     cameraRotV = normalize(glm::vec3(0.0f, 1.0f, 0.0f));
@@ -112,7 +135,7 @@ void init(GLFWwindow* window) {
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
-    brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
+    //brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -124,6 +147,7 @@ void display(GLFWwindow* window, double currentTime) {
     // get the uniform variables for MV and projection matrices
     mvLoc = glGetUniformLocation(renderingProgram, "mv_matrix");
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
+    nLoc = glGetUniformLocation(renderingProgram, "norm_matrix");
 
     vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
 
@@ -133,41 +157,52 @@ void display(GLFWwindow* window, double currentTime) {
     mvStack.push(mvStack.top());
     mvStack.top() *= Utils::buildTranslate(0.0f, 0.0f, 0.0f);
     mvStack.push(mvStack.top());
-    mvStack.top() *= Utils::buildRotateY((float)currentTime);
-    mvStack.top() *= Utils::buildRotateX((float)currentTime/2);
-    mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
+    //mvStack.top() *= Utils::buildRotateY((float)currentTime);
+    mvStack.top() *= Utils::buildRotateX(-0.7f);
+    //mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
 
+    //set up lights based on the current light's position
+    currentLightPos = glm::vec3(initialLightLoc.x, initialLightLoc.y, initialLightLoc.z);
+    
+    installLights(vMat); 
+
+    //build the mv matrix
+    //mvMat = vMat * mMat;
+
+    //build the inverse-transpose of the MV matrix for transforming normal vectors
+    invTrMat = glm::transpose(glm::inverse(mvStack.top()));
+
+    // put mv, proj and inverse-transpose(normal) into normals
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
+    glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
 
-    glEnable(GL_CULL_FACE);
+
+    
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
     //bind the related texture immediately after
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
+    //glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(1);
 
     //specify texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, brickTexture);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
-    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
-
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glFrontFace(GL_CCW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
-    //glDrawArrays(GL_TRIANGLES, 0, mySphere.getNumIndices());
-    
-   
-    
 
     //remove the moon scale/rotation/position, planet position, sun_position
     // and view matrices from stack
@@ -218,4 +253,39 @@ int main(void) {
     glfwDestroyWindow(window);
     glfwTerminate();
     exit(EXIT_SUCCESS);
+}
+
+void installLights(glm::mat4 vMatrix) {
+    // Installing lights:
+    //     vMat makes light relative to view
+    //     mvStack.top() makes light relative to movement (shadow stays in same spots)
+
+    //convert light's position to view space and save it in a float array
+    lightPosV = glm::vec3(vMatrix * glm::vec4(currentLightPos, 1.0f));
+    lightPos[0] = lightPosV.x;
+    lightPos[1] = lightPosV.y;
+    lightPos[2] = lightPosV.z;
+
+    //get the location of the light/material fields in the shader
+    globalAmbLoc = glGetUniformLocation(renderingProgram, "globalAmbient");
+    ambLoc = glGetUniformLocation(renderingProgram, "light.ambient");
+    diffLoc = glGetUniformLocation(renderingProgram, "light.diffuse");
+    specLoc = glGetUniformLocation(renderingProgram, "light.specular");
+    posLoc = glGetUniformLocation(renderingProgram, "light.position");
+    mAmbLoc = glGetUniformLocation(renderingProgram, "material.ambient");
+    mDiffLoc = glGetUniformLocation(renderingProgram, "material.diffuse");
+    mSpecLoc = glGetUniformLocation(renderingProgram, "material.specular");
+    mShiLoc = glGetUniformLocation(renderingProgram, "material.shininess");
+
+    //set the uniform light/material values in the shader
+    glProgramUniform4fv(renderingProgram, globalAmbLoc, 1, globalAmbient);
+    glProgramUniform4fv(renderingProgram, ambLoc, 1, lightAmbient);
+    glProgramUniform4fv(renderingProgram, diffLoc, 1, lightDiffuse);
+    glProgramUniform4fv(renderingProgram, specLoc, 1, lightSpecular);
+    glProgramUniform3fv(renderingProgram, posLoc, 1, lightPos);
+    glProgramUniform4fv(renderingProgram, mAmbLoc, 1, matAmb);
+    glProgramUniform4fv(renderingProgram, mDiffLoc, 1, matDif);
+    glProgramUniform4fv(renderingProgram, mSpecLoc, 1, matSpe);
+    glProgramUniform1f(renderingProgram, mShiLoc, matShi);
+
 }
