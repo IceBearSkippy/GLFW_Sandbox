@@ -41,7 +41,7 @@ GLuint renderingProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
-Sphere mySphere(48);
+//Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
 //ImportedModel myModel("./res/models/bleh.obj");
 GLuint brickTexture;
@@ -124,10 +124,9 @@ void setupVertices(void) {
 
 void init(GLFWwindow* window) {
     //renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
-    //renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
-    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting_pho.vert", "./res/shaders/lighting_pho.frag");
+    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
     cameraVec = glm::vec3(0.0f, 0.0f, -4.0f);
-    // N is the lookat vector (try staring at an object with it)
+
     cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
     cameraRotV = normalize(glm::vec3(0.0f, 1.0f, 0.0f));
     cameraRotN = normalize(glm::vec3(0.0f, 0.0f, 1.0f));
