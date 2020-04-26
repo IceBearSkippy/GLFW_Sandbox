@@ -135,7 +135,7 @@ void init(GLFWwindow* window) {
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
-    //brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
+    brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -151,7 +151,7 @@ void display(GLFWwindow* window, double currentTime) {
 
     vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
 
-    //planetary system transform create and draw
+    // operations for object in scene build into stack
     mvStack.push(vMat);
 
     mvStack.push(mvStack.top());
@@ -164,7 +164,7 @@ void display(GLFWwindow* window, double currentTime) {
     //set up lights based on the current light's position
     currentLightPos = glm::vec3(initialLightLoc.x, initialLightLoc.y, initialLightLoc.z);
     
-    installLights(vMat); 
+    installLights(vMat); // lights should be installed on a per object basis
 
     //build the mv matrix
     //mvMat = vMat * mMat;
@@ -177,24 +177,22 @@ void display(GLFWwindow* window, double currentTime) {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
 
-
-    
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
     //bind the related texture immediately after
-    //glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0); // the 2 specifies "coordinates" in vbo. 2 is needed for textures
+    glEnableVertexAttribArray(1);
 
     //specify texture
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, brickTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(2);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -283,6 +281,10 @@ void installLights(glm::mat4 vMatrix) {
     glProgramUniform4fv(renderingProgram, diffLoc, 1, lightDiffuse);
     glProgramUniform4fv(renderingProgram, specLoc, 1, lightSpecular);
     glProgramUniform3fv(renderingProgram, posLoc, 1, lightPos);
+
+    // The material would change object to object
+    // also some objects could have multiple materials 
+    //     -- like texture and texture_specular
     glProgramUniform4fv(renderingProgram, mAmbLoc, 1, matAmb);
     glProgramUniform4fv(renderingProgram, mDiffLoc, 1, matDif);
     glProgramUniform4fv(renderingProgram, mSpecLoc, 1, matSpe);
