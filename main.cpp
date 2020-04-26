@@ -68,7 +68,7 @@ GLfloat lastFrame = 0.0f;
 //inital light location
 glm::vec3 initialLightLoc = glm::vec3(0.0f, 0.0f, 0.0f);
 
-//white light properties
+//white light properties -- this is global for the scene
 float globalAmbient[4] = { 0.7f, 0.7f, 0.7f, 1.0f };
 float lightAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 float lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -87,7 +87,7 @@ void init(GLFWwindow* window);
 void display(GLFWwindow* window, double currentTime);
 void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
 int main(void);
-void installLights(glm::mat4);
+void setupLightAndMaterials(glm::mat4 vMatrix, float* matAmb, float* matDif, float* matSpe, float shi);
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
@@ -187,8 +187,9 @@ void display(GLFWwindow* window, double currentTime) {
     mvStack.top() *= Utils::buildScale(0.1f, 0.1f, 0.1f);
     mvStack.top() *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
     
-
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
+
+    setupLightAndMaterials(vMat, Utils::bronzeAmbient(), Utils::bronzeDiffuse(), Utils::bronzeSpecular(), Utils::bronzeShininess());
     //glBindVertexArray(vao[0]); // bind whatever vao first
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
@@ -202,7 +203,7 @@ void display(GLFWwindow* window, double currentTime) {
     glEnableVertexAttribArray(1);
 
     //specify texture
-    glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE0); // layout (binding = 0) uniform sampler2D samp ---- could send incremently (GL_TEXTURE0 + 1)
     glBindTexture(GL_TEXTURE_2D, whiteTexture);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -218,10 +219,10 @@ void display(GLFWwindow* window, double currentTime) {
     mvStack.top() *= Utils::buildRotateY((float)currentTime);
     mvStack.top() *= Utils::buildRotateX(-0.7f);
     mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
-
-    installLights(vMat); // lights should be installed on a per object basis
-    //build the inverse-transpose of the MV matrix for transforming normal vectors
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
+
+    setupLightAndMaterials(vMat, Utils::goldAmbient(), Utils::goldDiffuse(), Utils::goldSpecular(), Utils::goldShininess());
+    //build the inverse-transpose of the MV matrix for transforming normal vectors
     //glBindVertexArray(vao[1]); // bind whatever vao first
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
@@ -310,12 +311,8 @@ int main(void) {
     exit(EXIT_SUCCESS);
 }
 
-void installLights(glm::mat4 vMatrix) {
-    // Installing lights:
-    //     vMat makes light relative to view
-    //     mvStack.top() makes light relative to movement (shadow stays in same spots)
-
-    //convert light's position to view space and save it in a float array
+void setupLightAndMaterials(glm::mat4 vMatrix, float* matAmb, float* matDif, float* matSpe, float shi) {
+    // this allows material to be specified -- could change to struct
     lightPosV = glm::vec3(vMatrix * glm::vec4(currentLightPos, 1.0f));
     lightPos[0] = lightPosV.x;
     lightPos[1] = lightPosV.y;
@@ -339,14 +336,11 @@ void installLights(glm::mat4 vMatrix) {
     glProgramUniform4fv(renderingProgram, specLoc, 1, lightSpecular);
     glProgramUniform3fv(renderingProgram, posLoc, 1, lightPos);
 
-    // The material would change object to object
-    // also some objects could have multiple materials 
-    //     -- like texture and texture_specular
+
     glProgramUniform4fv(renderingProgram, mAmbLoc, 1, matAmb);
     glProgramUniform4fv(renderingProgram, mDiffLoc, 1, matDif);
     glProgramUniform4fv(renderingProgram, mSpecLoc, 1, matSpe);
     glProgramUniform1f(renderingProgram, mShiLoc, matShi);
-
 }
 
 void DoMovement() {
