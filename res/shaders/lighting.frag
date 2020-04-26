@@ -53,5 +53,7 @@ void main(void) {
 	vec4 texColor = texture(samp, textureCoords); // this uses the sampler to get the color related -- Note, this ain't needed unless texture is available
 	
 	//fragColor = vec4((ambient + diffuse + specular), 1.0); // without texture
-	fragColor = 0.5 * texColor * vec4((ambient + diffuse + specular), 1.0); // this just simply applies lighting to the applied texture
+
+	fragColor = texColor * vec4((ambient + diffuse ), 1.0) + vec4(specular, 1.0);
+	
 }

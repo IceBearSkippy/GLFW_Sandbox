@@ -28,23 +28,24 @@
 #include "Utils.h"
 #include "Sphere.h"
 #include "Torus.h"
+#include "Camera.h"
 //#include "ImportedModel.h" <-- this is too basic
 
 using namespace std;
 
 #define numVAOs 1
-#define numVBOs 4
+#define numVBOs 10
 
 //allocate variables used in display function
-glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN;
+//glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN; -- this is managed in camera class
 GLuint renderingProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
-//Sphere mySphere(48);
+Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
 //ImportedModel myModel("./res/models/bleh.obj");
-GLuint brickTexture;
+GLuint brickTexture, whiteTexture;
 GLuint mvLoc, projLoc, nLoc;
 int width, height;
 float aspect;
@@ -55,8 +56,17 @@ stack<glm::mat4> mvStack;
 glm::vec3 currentLightPos, lightPosV; //light position as Vec3f in both model and view space
 float lightPos[3];  // light position as float array
 
+//camera 
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+bool keys[1024];
+GLfloat lastX = 400, lastY = 300;
+bool firstMouse = true;
+
+GLfloat deltaTime = 0.0f;
+GLfloat lastFrame = 0.0f;
+
 //inital light location
-glm::vec3 initialLightLoc = glm::vec3(5.0f, 2.0f, 2.0f);
+glm::vec3 initialLightLoc = glm::vec3(0.0f, 0.0f, 0.0f);
 
 //white light properties
 float globalAmbient[4] = { 0.7f, 0.7f, 0.7f, 1.0f };
@@ -78,19 +88,44 @@ void display(GLFWwindow* window, double currentTime);
 void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
 int main(void);
 void installLights(glm::mat4);
-
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
+void MouseCallback(GLFWwindow* window, double xPos, double yPos);
+void DoMovement();
+int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex);
 void setupVertices(void) {
+    //create vao and vbos needed
+    glGenVertexArrays(1, vao); // create 1 vao
+    glBindVertexArray(vao[0]); // bind one vao (make as active)
+    glGenBuffers(numVBOs, vbo); // create vbo to corresponding vao -- can segment vbo array to corresponding vao allocation
 
-    vector<int> ind = myTorus.getIndices();
-    vector<glm::vec3> vert = myTorus.getVertices();
-    vector<glm::vec2> tex = myTorus.getTexCoords();
-    vector<glm::vec3> norm = myTorus.getNormals();
 
+    vector<int> ind = mySphere.getIndices();
+    vector<glm::vec3> vert = mySphere.getVertices();
+    vector<glm::vec2> tex = mySphere.getTexCoords();
+    vector<glm::vec3> norm = mySphere.getNormals();
+    int numVertices = mySphere.getNumVertices();
+    int vboIndex = 0;
+    int vaoIndex = 0;
+    // this only uses 4 vbos
+    vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
+    
+
+    //is it binding to the same indices?
+    ind = myTorus.getIndices();
+    vert = myTorus.getVertices();
+    tex = myTorus.getTexCoords();
+    norm = myTorus.getNormals();
+    numVertices = myTorus.getNumVertices();
+    // this only uses 4 vbos
+    vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
+    
+}
+
+int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex) {
     vector<float> pvalues; //vertex positions
     vector<float> tvalues; //texture coordinates
     vector<float> nvalues; //normal vectors
 
-    int numVertices = myTorus.getNumVertices();
     for (int i = 0; i < numVertices; i++) {
         pvalues.push_back(vert[i].x);
         pvalues.push_back(vert[i].y);
@@ -104,38 +139,30 @@ void setupVertices(void) {
         nvalues.push_back(norm[i].z);
     }
 
-    glGenVertexArrays(1, vao);
-    glBindVertexArray(vao[0]);
-    glGenBuffers(numVBOs, vbo); // four vbos are created
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
     glBufferData(GL_ARRAY_BUFFER, pvalues.size() * 4, &pvalues[0], GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
     glBufferData(GL_ARRAY_BUFFER, tvalues.size() * 4, &tvalues[0], GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
     glBufferData(GL_ARRAY_BUFFER, nvalues.size() * 4, &nvalues[0], GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]); // indices
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[vboIndex++]); // indices
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, ind.size() * 4, &ind[0], GL_STATIC_DRAW);
 
+    return vboIndex;
 }
 
 void init(GLFWwindow* window) {
-    //renderingProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
+
     renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
-    cameraVec = glm::vec3(0.0f, 0.0f, -4.0f);
-
-    cameraRotU = normalize(glm::vec3(1.0f, 0.0f, 0.0f));
-    cameraRotV = normalize(glm::vec3(0.0f, 1.0f, 0.0f));
-    cameraRotN = normalize(glm::vec3(0.0f, 0.0f, 1.0f));
-
     setupVertices();
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
+    whiteTexture = Utils::loadTexture("./res/images/white.jpg");
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -149,48 +176,71 @@ void display(GLFWwindow* window, double currentTime) {
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
     nLoc = glGetUniformLocation(renderingProgram, "norm_matrix");
 
-    vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
+    //vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
+    vMat = camera.GetViewMatrix();
+    currentLightPos = glm::vec3(initialLightLoc.x, initialLightLoc.y, initialLightLoc.z);
 
     // operations for object in scene build into stack
     mvStack.push(vMat);
-
     mvStack.push(mvStack.top());
-    mvStack.top() *= Utils::buildTranslate(0.0f, 0.0f, 0.0f);
-    mvStack.push(mvStack.top());
-    mvStack.top() *= Utils::buildRotateY((float)currentTime);
-    mvStack.top() *= Utils::buildRotateX(-0.7f);
-    mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
-
-    //set up lights based on the current light's position
-    currentLightPos = glm::vec3(initialLightLoc.x, initialLightLoc.y, initialLightLoc.z);
+    //mvStack.top() *= glm::vec4(currentLightPos, 1.0f);
+    mvStack.top() *= Utils::buildScale(0.1f, 0.1f, 0.1f);
+    mvStack.top() *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
     
-    installLights(vMat); // lights should be installed on a per object basis
 
-    //build the mv matrix
-    //mvMat = vMat * mMat;
-
-    //build the inverse-transpose of the MV matrix for transforming normal vectors
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
-
-    // put mv, proj and inverse-transpose(normal) into normals
+    //glBindVertexArray(vao[0]); // bind whatever vao first
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
-    //bind the related texture immediately after
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0); // the 2 specifies "coordinates" in vbo. 2 is needed for textures
     glEnableVertexAttribArray(1);
 
     //specify texture
     glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, whiteTexture);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
+    glDrawElements(GL_TRIANGLES, mySphere.getNumIndices(), GL_UNSIGNED_INT, 0);
+    mvStack.pop();
+
+    // ----- building draw matrix for torus
+    mvStack.push(mvStack.top());
+    mvStack.top() *= Utils::buildTranslate(0.0f, 0.0f, 0.0f);
+    mvStack.top() *= Utils::buildRotateY((float)currentTime);
+    mvStack.top() *= Utils::buildRotateX(-0.7f);
+    mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
+
+    installLights(vMat); // lights should be installed on a per object basis
+    //build the inverse-transpose of the MV matrix for transforming normal vectors
+    invTrMat = glm::transpose(glm::inverse(mvStack.top()));
+    //glBindVertexArray(vao[1]); // bind whatever vao first
+    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
+    glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    //bind the related texture immediately after
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+
+    //specify texture
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, brickTexture);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
@@ -199,12 +249,9 @@ void display(GLFWwindow* window, double currentTime) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
-    //remove the moon scale/rotation/position, planet position, sun_position
-    // and view matrices from stack
-    //mvStack.pop(); mvStack.pop(); mvStack.pop(); mvStack.pop();
     while (!mvStack.empty()) {
         mvStack.pop();
     }
@@ -233,19 +280,29 @@ int main(void) {
     GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter 6", NULL, NULL);
     glfwMakeContextCurrent(window);
 
+    // mouse and keys configurations
+    glfwSetKeyCallback(window, KeyCallback);
+    glfwSetCursorPosCallback(window, MouseCallback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
     if (glewInit() != GLEW_OK) {
         exit(EXIT_FAILURE);
     }
     glfwSwapInterval(1);
-
     glfwSetWindowSizeCallback(window, window_reshape_callback);
 
     init(window); // glew must be initialized before init
 
-    while (!glfwWindowShouldClose(window)) {
-        display(window, glfwGetTime());
-        glfwSwapBuffers(window); // GLFW windows are double-buffered by default
+    while (!glfwWindowShouldClose(window)) { // game loop
+        GLfloat currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         glfwPollEvents();
+        DoMovement();
+        display(window, currentFrame);
+        glfwSwapBuffers(window); // GLFW windows are double-buffered by default
+        
     }
 
     glfwDestroyWindow(window);
@@ -290,4 +347,53 @@ void installLights(glm::mat4 vMatrix) {
     glProgramUniform4fv(renderingProgram, mSpecLoc, 1, matSpe);
     glProgramUniform1f(renderingProgram, mShiLoc, matShi);
 
+}
+
+void DoMovement() {
+    if (keys[GLFW_KEY_W] || keys[GLFW_KEY_UP]) {
+        camera.ProcessKeyboard(FORWARD, deltaTime);
+    }
+
+    if (keys[GLFW_KEY_S] || keys[GLFW_KEY_DOWN]) {
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
+    }
+
+    if (keys[GLFW_KEY_A] || keys[GLFW_KEY_LEFT]) {
+        camera.ProcessKeyboard(LEFT, deltaTime);
+    }
+
+    if (keys[GLFW_KEY_D] || keys[GLFW_KEY_RIGHT]) {
+        camera.ProcessKeyboard(RIGHT, deltaTime);
+    }
+}
+
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode) {
+    if (GLFW_KEY_ESCAPE == key && GLFW_PRESS == action) {
+        glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+
+    if (key >= 0 && key < 1024) {
+        if (action == GLFW_PRESS) {
+            keys[key] = true;
+        }
+        else if (action == GLFW_RELEASE) {
+            keys[key] = false;
+        }
+    }
+}
+
+void MouseCallback(GLFWwindow* window, double xPos, double yPos) {
+    if (firstMouse) {
+        lastX = xPos;
+        lastY = yPos;
+        firstMouse = false;
+    }
+
+    GLfloat xOffset = xPos - lastX;
+    GLfloat yOffset = lastY - yPos;  // Reversed since y-coordinates go from bottom to left
+
+    lastX = xPos;
+    lastY = yPos;
+
+    camera.ProcessMouseMovement(xOffset, yOffset);
 }
