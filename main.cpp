@@ -74,11 +74,6 @@ float lightAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 float lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 float lightSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-//gold material properties
-float* matAmb = Utils::goldAmbient();
-float* matDif = Utils::goldDiffuse();
-float* matSpe = Utils::goldSpecular();
-float matShi = Utils::goldShininess();
 
 
 //function prototypes
@@ -311,7 +306,7 @@ int main(void) {
     exit(EXIT_SUCCESS);
 }
 
-void setupLightAndMaterials(glm::mat4 vMatrix, float* matAmb, float* matDif, float* matSpe, float shi) {
+void setupLightAndMaterials(glm::mat4 vMatrix, float* matAmb, float* matDif, float* matSpe, float matShi) {
     // this allows material to be specified -- could change to struct
     lightPosV = glm::vec3(vMatrix * glm::vec4(currentLightPos, 1.0f));
     lightPos[0] = lightPosV.x;
