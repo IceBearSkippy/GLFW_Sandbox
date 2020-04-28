@@ -26,6 +26,9 @@ namespace Utils {
     bool checkOpenGLError();
     GLuint createShaderProgram(const char* vp, const char* fp);
 
+    //helper functions
+    float toRadians(float degrees);
+
     //matrix functions
     mat4 buildCameraLocation(vec3 camera, vec3 uComp, vec3 vComp, vec3 nComp);
     mat4 buildRotateX(float rad);
@@ -159,6 +162,10 @@ namespace Utils {
             printShaderLog(vfProgram);
         }
         return vfProgram;
+    }
+
+    float toRadians(float degrees) {
+        return (degrees * 2.0f * 3.14159f) / 360.0f;
     }
 
     mat4 buildCameraLocation(vec3 camera, vec3 uComp, vec3 vComp, vec3 nComp) {
