@@ -12,10 +12,6 @@
 // GLFW
 #include <GLFW/glfw3.h>
 
-// GL includes
-//#include "Shader.h"
-//#include "Camera.h"
-//#include "Model.h"
 
 // GLM Mathemtics
 #include <glm/glm.hpp>
@@ -29,24 +25,20 @@
 #include "Sphere.h"
 #include "Torus.h"
 #include "Camera.h"
-//#include "ImportedModel.h" <-- this is too basic
 
 using namespace std;
 
 #define numVAOs 1
 #define numVBOs 10
 
-//allocate variables used in display function
-//glm::vec3 cameraVec, cameraRotU, cameraRotV, cameraRotN; -- this is managed in camera class
-GLuint renderingProgram;
+GLuint renderingProgram, shadowProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
 Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
-//ImportedModel myModel("./res/models/bleh.obj");
 GLuint brickTexture, whiteTexture;
-GLuint mvLoc, projLoc, nLoc;
+GLuint mvLoc, projLoc, nLoc, sLoc;
 int width, height;
 float aspect;
 
@@ -65,21 +57,28 @@ bool firstMouse = true;
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
-//inital light location
-glm::vec3 initialLightLoc = glm::vec3(0.0f, 0.0f, 0.0f);
-
 //white light properties -- this is global for the scene
 float globalAmbient[4] = { 0.7f, 0.7f, 0.7f, 1.0f };
 float lightAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 float lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 float lightSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+//variables used in display() for transfering light to shaders
+float curAmb[4], curDif[4], curSpe[4], matAmb[4], matDif[4], matSpe[4];
+float curShi, matShi;
 
+//shadow-related variables
+int screenSizeX, screenSizeY;
+GLuint shadowTex, shadowBuffer;
+glm::mat4 lightVmatrix, lightPmatrix, shadowMVP1, shadowMVP2, b;
 
 //function prototypes
 void setupVertices(void);
+void setupShadowBuffers(GLFWwindow* window);
 void init(GLFWwindow* window);
 void display(GLFWwindow* window, double currentTime);
+void displayPreShadow(double currentTime);
+void displayPostShadow(double currentTime);
 void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
 int main(void);
 void setupLightAndMaterials(glm::mat4 vMatrix, float* matAmb, float* matDif, float* matSpe, float shi);
@@ -87,6 +86,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
 int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex);
+
 void setupVertices(void) {
     //create vao and vbos needed
     glGenVertexArrays(1, vao); // create 1 vao
@@ -105,7 +105,6 @@ void setupVertices(void) {
     vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
     
 
-    //is it binding to the same indices?
     ind = myTorus.getIndices();
     vert = myTorus.getVertices();
     tex = myTorus.getTexCoords();
@@ -116,6 +115,24 @@ void setupVertices(void) {
     
 }
 
+void setupShadowBuffers(GLFWwindow* window) {
+    glfwGetFramebufferSize(window, &width, &height);
+    screenSizeX = width;
+    screenSizeY = height;
+
+    //create the custom frame buffer
+    glGenFramebuffers(1, &shadowBuffer);
+
+    // create the shadow texture and configure it to hold depth information
+    glGenTextures(1, &shadowTex);
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, screenSizeX, screenSizeY, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+
+}
 int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex) {
     vector<float> pvalues; //vertex positions
     vector<float> tvalues; //texture coordinates
@@ -152,43 +169,146 @@ int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::ve
 void init(GLFWwindow* window) {
 
     renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
+    shadowProgram = Utils::createShaderProgram("./res/shaders/shadow.vert", "./res/shaders/shadow.frag");
     setupVertices();
+    setupShadowBuffers(window);
+    b = glm::mat4(
+        0.5f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.5f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.5f, 0.0f,
+        0.5f, 0.5f, 0.5f, 1.0f
+    );
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
+    currentLightPos = glm::vec3(0.0f, -0.2f, 0.0f); //<-- if you want a static position light position
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
     whiteTexture = Utils::loadTexture("./res/images/white.jpg");
 }
 
+
 void display(GLFWwindow* window, double currentTime) {
     glClear(GL_DEPTH_BUFFER_BIT);
     glClear(GL_COLOR_BUFFER_BIT);
+    //currentLightPos = camera.GetPosition(); // this simulates our camera as a "light" source
+    // set up view and perspective matrix from the light point of view for displayPreShadow
+    // lightVmatrix = glm::lookAt(currentLightPos, origin, up);
+    lightVmatrix = glm::lookAt(currentLightPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // might need to double check this
+    lightPmatrix = glm::perspective(Utils::toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
+    // make the custom frame buffer current, and associate it with the shadow texture
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowBuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, shadowTex, 0);
+
+    //disable drawing color, but enable the depth computation
+    glDrawBuffer(GL_NONE);
+    glEnable(GL_DEPTH_TEST);
+
+    displayPreShadow(currentTime); // first pass
+
+    //restore the default display buffer and re-enable drawing
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE1); // binding 1 in shader
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
+    glDrawBuffer(GL_FRONT);    // re-enables drawing colors
+
+    displayPostShadow(currentTime); // second pass
+}
+
+void displayPreShadow(double currentTime) {
+    glUseProgram(shadowProgram);
+
+    //TODO: Debug this -- why is the shadows being attached to the camera movement?
+    //drawing sphere
+    mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
+    mMat *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
+    shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
+    sLoc = glGetUniformLocation(shadowProgram, "shadowMVP");
+    glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
+    // we only need to set up sphere vertices buffer
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
+    glDrawElements(GL_TRIANGLES, mySphere.getNumIndices(), GL_UNSIGNED_INT, 0);
+
+    // drawing torus one
+
+    mMat = Utils::buildTranslate(-0.5f, -0.5f, 0.0f);
+    mMat *= Utils::buildRotateZ(-0.7f);
+
+    // we are drawing from the light's point of view, so we use the light's P and V matrices
+    shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
+    glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
+
+    // we only need to set up torus vertices buffer
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    
+    // vbo[7] contains indices. We're just drawing that
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
+
+
+    // drawing torus two
+    mMat = Utils::buildTranslate(1.0f, -0.5f, 0.0f);
+    shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
+    glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
+}
+void displayPostShadow(double currentTime) {
     glUseProgram(renderingProgram);
 
     // get the uniform variables for MV and projection matrices
     mvLoc = glGetUniformLocation(renderingProgram, "mv_matrix");
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
     nLoc = glGetUniformLocation(renderingProgram, "norm_matrix");
+    sLoc = glGetUniformLocation(renderingProgram, "shadowMVP");
 
     //vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
     vMat = camera.GetViewMatrix();
-    currentLightPos = glm::vec3(initialLightLoc.x, initialLightLoc.y, initialLightLoc.z);
 
     // operations for object in scene build into stack
     mvStack.push(vMat);
     mvStack.push(mvStack.top());
-    //mvStack.top() *= glm::vec4(currentLightPos, 1.0f);
-    mvStack.top() *= Utils::buildScale(0.1f, 0.1f, 0.1f);
-    mvStack.top() *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
-    
+    mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
+    mMat *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
+    shadowMVP2 = b * lightPmatrix * lightVmatrix * mMat;
+    mvStack.top() *= mMat;
+
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
 
     setupLightAndMaterials(vMat, Utils::bronzeAmbient(), Utils::bronzeDiffuse(), Utils::bronzeSpecular(), Utils::bronzeShininess());
+    //
     //glBindVertexArray(vao[0]); // bind whatever vao first
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
+    glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
@@ -204,24 +324,33 @@ void display(GLFWwindow* window, double currentTime) {
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
     glDrawElements(GL_TRIANGLES, mySphere.getNumIndices(), GL_UNSIGNED_INT, 0);
     mvStack.pop();
 
-    // ----- building draw matrix for torus
+    // -------------------------- building draw matrix for torus 1-----------------
     mvStack.push(mvStack.top());
-    mvStack.top() *= Utils::buildTranslate(0.0f, 0.0f, 0.0f);
-    mvStack.top() *= Utils::buildRotateY((float)currentTime);
-    mvStack.top() *= Utils::buildRotateX(-0.7f);
-    mvStack.top() *= Utils::buildTranslate(0.0f, sin((float)currentTime), 0.0f);
+    mMat = Utils::buildTranslate(-0.5f, -0.5f, 0.0f);
+    mMat *= Utils::buildRotateZ(-0.7f);
+    shadowMVP2 = b * lightPmatrix * lightVmatrix * mMat;
+    mvStack.top() *= mMat;
+
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
 
+    // this handles material and lighting uniforms only
     setupLightAndMaterials(vMat, Utils::goldAmbient(), Utils::goldDiffuse(), Utils::goldSpecular(), Utils::goldShininess());
-    //build the inverse-transpose of the MV matrix for transforming normal vectors
+
+    
     //glBindVertexArray(vao[1]); // bind whatever vao first
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
+    glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -247,6 +376,52 @@ void display(GLFWwindow* window, double currentTime) {
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
+
+    // -------------------------- building draw matrix for torus 2---------------------
+    mvStack.pop();
+
+    mvStack.push(mvStack.top());
+    mMat = Utils::buildTranslate(1.0f, -0.5f, 0.0f);
+    shadowMVP2 = b * lightPmatrix * lightVmatrix * mMat;
+    mvStack.top() *= mMat;
+
+    invTrMat = glm::transpose(glm::inverse(mvStack.top()));
+
+    // this handles material and lighting uniforms only
+    setupLightAndMaterials(vMat, Utils::goldAmbient(), Utils::goldDiffuse(), Utils::goldSpecular(), Utils::goldShininess());
+    
+
+    //glBindVertexArray(vao[1]); // bind whatever vao first
+    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
+    glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
+    glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    //bind the related texture immediately after
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+
+    //specify texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(2);
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
+
 
     while (!mvStack.empty()) {
         mvStack.pop();
