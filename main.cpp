@@ -49,7 +49,8 @@ glm::vec3 currentLightPos, lightPosV; //light position as Vec3f in both model an
 float lightPos[3];  // light position as float array
 
 //camera 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(-2.0f, 1.0f, 0.0f));
+Camera lightEye(glm::vec3(-2.0f, 1.0f, 0.0f));
 bool keys[1024];
 GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
@@ -181,19 +182,20 @@ void init(GLFWwindow* window) {
     glfwGetFramebufferSize(window, &width, &height);
     aspect = (float)width / (float)height;
     pMat = glm::perspective(1.0472f, aspect, 0.1f, 1000.0f); // 1.0672 radians = 60 degrees
-    currentLightPos = glm::vec3(0.0f, -0.2f, 0.0f); //<-- if you want a static position light position
+    currentLightPos = lightEye.GetPosition(); //<-- if you want a static position light position
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
     whiteTexture = Utils::loadTexture("./res/images/white.jpg");
 }
 
 
 void display(GLFWwindow* window, double currentTime) {
-    glClear(GL_DEPTH_BUFFER_BIT);
     glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    
     //currentLightPos = camera.GetPosition(); // this simulates our camera as a "light" source
     // set up view and perspective matrix from the light point of view for displayPreShadow
     // lightVmatrix = glm::lookAt(currentLightPos, origin, up);
-    lightVmatrix = glm::lookAt(currentLightPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // might need to double check this
+    lightVmatrix = glm::lookAt(currentLightPos, glm::vec3(1.0f, 1.0f, 1.0f), lightEye.GetUp()); // might need to double check this
     lightPmatrix = glm::perspective(Utils::toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
     // make the custom frame buffer current, and associate it with the shadow texture
@@ -204,8 +206,11 @@ void display(GLFWwindow* window, double currentTime) {
     glDrawBuffer(GL_NONE);
     glEnable(GL_DEPTH_TEST);
 
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(2.0f, 4.0f);
     displayPreShadow(currentTime); // first pass
 
+    glDisable(GL_POLYGON_OFFSET_FILL);
     //restore the default display buffer and re-enable drawing
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glActiveTexture(GL_TEXTURE1); // binding 1 in shader
@@ -217,13 +222,12 @@ void display(GLFWwindow* window, double currentTime) {
 
 void displayPreShadow(double currentTime) {
     glUseProgram(shadowProgram);
+    sLoc = glGetUniformLocation(shadowProgram, "shadowMVP");
 
-    //TODO: Debug this -- why is the shadows being attached to the camera movement?
     //drawing sphere
     mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
-    mMat *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
+    mMat *= Utils::buildTranslate(-5.0f, 1.0f, 3.0f);
     shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
-    sLoc = glGetUniformLocation(shadowProgram, "shadowMVP");
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
     // we only need to set up sphere vertices buffer
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
@@ -296,14 +300,13 @@ void displayPostShadow(double currentTime) {
     mvStack.push(vMat);
     mvStack.push(mvStack.top());
     mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
-    mMat *= Utils::buildTranslate(currentLightPos.x, currentLightPos.y, currentLightPos.z);
+    mMat *= Utils::buildTranslate(-5.0f, 1.0f, 3.0f);
     shadowMVP2 = b * lightPmatrix * lightVmatrix * mMat;
     mvStack.top() *= mMat;
 
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
 
     setupLightAndMaterials(vMat, Utils::bronzeAmbient(), Utils::bronzeDiffuse(), Utils::bronzeSpecular(), Utils::bronzeShininess());
-    //
     //glBindVertexArray(vao[0]); // bind whatever vao first
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
@@ -343,7 +346,7 @@ void displayPostShadow(double currentTime) {
     invTrMat = glm::transpose(glm::inverse(mvStack.top()));
 
     // this handles material and lighting uniforms only
-    setupLightAndMaterials(vMat, Utils::goldAmbient(), Utils::goldDiffuse(), Utils::goldSpecular(), Utils::goldShininess());
+    setupLightAndMaterials(vMat, Utils::silverAmbient(), Utils::silverDiffuse(), Utils::silverSpecular(), Utils::silverShininess());
 
     
     //glBindVertexArray(vao[1]); // bind whatever vao first
