@@ -33,21 +33,51 @@ uniform mat4 norm_matrix;
 layout (binding = 0) uniform sampler2D samp;
 layout (binding = 1) uniform sampler2DShadow shTex;
 
+float lookup(float ox, float oy)
+{
+	float f = textureProj(shTex,
+		shadow_coord + vec4(ox * 0.001 * shadow_coord.w, oy * 0.001 * shadow_coord.w,
+		-0.01, 0.0)); // the third parameter (-0.01) is an offset to conteract shadow acne
+		return f;
+}
+
 void main(void) {
+	float shadowFactor = 0.0;
 	// normalize the light, normal and view vectors
 	vec3 L = normalize(varyingLightDir);
 	vec3 N = normalize(varyingNormal);
 	vec3 V = normalize(varyingVertPos);
 	vec3 H = normalize(varyingHalfVector);
 
-	float notInShadow = textureProj(shTex, shadow_coord);
+	//---- this section produces a 4-sample dithered soft shadow
+	//float swidth = 2.5;    // tunable amount of shadow spread
+	// produces one of 4 sample patterns depending on glFragCoord mod 2
 	
-	vec4 texColor = texture(samp, textureCoords); // this uses the sampler to get the color related -- Note, this ain't needed unless texture is available
-	
-	//fragColor = texColor * globalAmbient * material.ambient + light.ambient * material.ambient;
-	fragColor = globalAmbient * material.ambient + light.ambient * material.ambient;
-	if (notInShadow == 1.0) {
-		fragColor += light.diffuse * material.diffuse * max(dot(L,N), 0.0) + light.specular  * material.specular * pow(max(dot(H, N), 0.0), material.shininess * 3.0);
+	//vec2 offset = mod(floor(gl_FragCoord.xy), 2.0) * swidth;
+	//shadowFactor += lookup(-1.5*swidth + offset.x, 1.5*swidth - offset.y);
+	//shadowFactor += lookup(-1.5*swidth + offset.x, -0.5*swidth - offset.y);
+	//shadowFactor += lookup(0.5*swidth + offset.x, 1.5*swidth - offset.y);
+	//shadowFactor += lookup(0.5*swidth + offset.x, -0.5*swidth - offset.y);
+	//shadowFactor = shadowFactor / 4.0;  //shadowFactor is an average of the four sampled points
+
+	//--- this section produces a 64-sample hi-resolution soft shadow
+	float swidth = 2.5;    // tunable amount of shadow spread
+	float endp = swidth*3.0 + swidth/2.0;
+	for (float m=-endp; m<=endp; m=m+swidth) {
+		for (float n=-endp; n<=endp; n=n+swidth) {
+			shadowFactor += lookup(m, n);
+		}
 	}
+	shadowFactor = shadowFactor / 64.0;
+
+	vec4 shadowColor = globalAmbient * material.ambient * light.ambient * material.ambient;
+	
+	// this uses the sampler to get the color related multiply to lightedColor to add texture
+	vec4 texColor = texture(samp, textureCoords);
+	
+	vec4 lightedColor = light.diffuse * material.diffuse * max(dot(L,N), 0.0) 
+						+ light.specular  * material.specular 
+						* pow(max(dot(H, N), 0.0), material.shininess * 3.0);
+	fragColor = vec4((shadowColor.xyz + shadowFactor * (lightedColor.xyz)), 1.0);
 	
 }
