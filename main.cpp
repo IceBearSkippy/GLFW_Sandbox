@@ -49,8 +49,8 @@ glm::vec3 currentLightPos, lightPosV; //light position as Vec3f in both model an
 float lightPos[3];  // light position as float array
 
 //camera 
-Camera camera(glm::vec3(-2.0f, 1.0f, 0.0f));
-Camera lightEye(glm::vec3(-2.0f, 1.0f, 0.0f));
+Camera camera(glm::vec3(-2.0f, 1.0f, -1.0f));
+Camera lightEye(glm::vec3(-2.0f, 1.0f, -1.0f));
 bool keys[1024];
 GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
@@ -133,6 +133,10 @@ void setupShadowBuffers(GLFWwindow* window) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 
+    //avoid peter panning:
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
 }
 int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex) {
     vector<float> pvalues; //vertex positions
@@ -207,7 +211,7 @@ void display(GLFWwindow* window, double currentTime) {
     glEnable(GL_DEPTH_TEST);
 
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(2.0f, 4.0f);
+    glPolygonOffset(2.0f, 4.0f); // adjust this for shadows
     displayPreShadow(currentTime); // first pass
 
     glDisable(GL_POLYGON_OFFSET_FILL);
