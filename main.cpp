@@ -29,15 +29,15 @@
 using namespace std;
 
 #define numVAOs 1
-#define numVBOs 10
+#define numVBOs 14
 
-GLuint renderingProgram, shadowProgram;
+GLuint renderingProgram, shadowProgram, skyboxProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
 Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
-GLuint brickTexture, whiteTexture;
+GLuint brickTexture, whiteTexture, skyboxTexture;
 GLuint mvLoc, projLoc, nLoc, sLoc;
 int width, height;
 float aspect;
@@ -79,6 +79,7 @@ void setupShadowBuffers(GLFWwindow* window);
 void init(GLFWwindow* window);
 void display(GLFWwindow* window, double currentTime);
 void displayPreShadow(double currentTime);
+void displaySkybox(double currentTime);
 void displayPostShadow(double currentTime);
 void window_reshape_callback(GLFWwindow* window, int newWidth, int newHeight);
 int main(void);
@@ -102,7 +103,7 @@ void setupVertices(void) {
     int numVertices = mySphere.getNumVertices();
     int vboIndex = 0;
     int vaoIndex = 0;
-    // this only uses 4 vbos
+    // vbos 0-3
     vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
     
 
@@ -111,8 +112,47 @@ void setupVertices(void) {
     tex = myTorus.getTexCoords();
     norm = myTorus.getNormals();
     numVertices = myTorus.getNumVertices();
-    // this only uses 4 vbos
+    // vbos  4-7
     vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
+
+
+    // Cube vertices (vbo 8 - 9)
+    float cubeVertexPositions[108] = {
+        -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f,
+
+        1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,
+        -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f
+    };
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertexPositions), cubeVertexPositions, GL_STATIC_DRAW);
+    //create skybox vertices
+    float cubeTextureCoord[72] = {
+        1.00f, 0.66f, 1.00f, 0.33f, 0.75f, 0.33f,  // black face lower right
+        0.75f, 0.33f, 0.75f, 0.66f, 1.00f, 0.66f,  // back face upper right
+        0.75f, 0.33f, 0.50f, 0.33f, 0.75f, 0.66f,  // right face lower right
+        0.50f, 0.33f, 0.50f, 0.66f, 0.75f, 0.66f,  // right face upper left
+        0.50f, 0.33f, 0.25f, 0.33f, 0.50f, 0.66f,  // front face lower right
+        0.25f, 0.33f, 0.25f, 0.66f, 0.50f, 0.66f,  // front face upper left
+        0.25f, 0.33f, 0.00f, 0.33f, 0.25f, 0.66f,  // left face lower right
+        0.00f, 0.33f, 0.00f, 0.66f, 0.25f, 0.66f,  // left face upper left
+        0.25f, 0.33f, 0.50f, 0.33f, 0.50f, 0.00f,  // bottom face upper right
+        0.50f, 0.00f, 0.25f, 0.00f, 0.25f, 0.33f,  // bottom face lower left
+        0.25f, 1.00f, 0.50f, 1.00f, 0.50f, 0.66f,  // top face upper right
+        0.50f, 0.66f, 0.25f, 0.66f, 0.25f, 1.00f   // top face lower left
+    };
+    //set up buffers for cube and scene objects
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertexPositions), cubeTextureCoord, GL_STATIC_DRAW);
     
 }
 
@@ -175,6 +215,8 @@ void init(GLFWwindow* window) {
 
     renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
     shadowProgram = Utils::createShaderProgram("./res/shaders/shadow.vert", "./res/shaders/shadow.frag");
+    skyboxProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
+
     setupVertices();
     setupShadowBuffers(window);
     b = glm::mat4(
@@ -189,6 +231,7 @@ void init(GLFWwindow* window) {
     currentLightPos = lightEye.GetPosition(); //<-- if you want a static position light position
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
     whiteTexture = Utils::loadTexture("./res/images/white.jpg");
+    skyboxTexture = Utils::loadTexture("./res/images/skybox_night_sky.jpg");
 }
 
 
@@ -212,7 +255,7 @@ void display(GLFWwindow* window, double currentTime) {
 
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0f, 4.0f); // adjust this for shadows
-    displayPreShadow(currentTime); // first pass
+    displayPreShadow(currentTime); // first pas
 
     glDisable(GL_POLYGON_OFFSET_FILL);
     //restore the default display buffer and re-enable drawing
@@ -220,6 +263,8 @@ void display(GLFWwindow* window, double currentTime) {
     glActiveTexture(GL_TEXTURE1); // binding 1 in shader
     glBindTexture(GL_TEXTURE_2D, shadowTex);
     glDrawBuffer(GL_FRONT);    // re-enables drawing colors
+
+    displaySkybox(currentTime);
 
     displayPostShadow(currentTime); // second pass
 }
@@ -288,6 +333,45 @@ void displayPreShadow(double currentTime) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 }
+
+void displaySkybox(double currentTime) {
+    glUseProgram(skyboxProgram);
+
+    // get the uniform variables for MV and projection matrices
+    mvLoc = glGetUniformLocation(skyboxProgram, "mv_matrix");
+    projLoc = glGetUniformLocation(skyboxProgram, "proj_matrix");
+
+    //vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
+    vMat = camera.GetViewMatrix();
+    mvStack.push(vMat);
+
+    //---- building skybox
+    mvStack.push(mvStack.top());
+    mMat = Utils::buildTranslate(camera.GetPosition().x, camera.GetPosition().y, camera.GetPosition().z);
+    mvStack.top() *= mMat;
+
+    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[9]);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, skyboxTexture);
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);    // cube has CW winding order, but we are viewing its interior
+
+    glDisable(GL_DEPTH_TEST);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glEnable(GL_DEPTH_TEST);
+    mvStack.pop();
+}
+
 void displayPostShadow(double currentTime) {
     glUseProgram(renderingProgram);
 
@@ -299,9 +383,10 @@ void displayPostShadow(double currentTime) {
 
     //vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
     vMat = camera.GetViewMatrix();
-
-    // operations for object in scene build into stack
     mvStack.push(vMat);
+    
+    // ------------- building sphere
+    
     mvStack.push(mvStack.top());
     mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
     mMat *= Utils::buildTranslate(-5.0f, 1.0f, 3.0f);
