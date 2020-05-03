@@ -24,7 +24,7 @@ void Sphere::init(int prec) {
 		vertices.push_back(glm::vec3());
 		texCoords.push_back(glm::vec2());
 		normals.push_back(glm::vec3());
-		
+		tangents.push_back(glm::vec3());
 	}
 
 	for (int i = 0; i < numIndices; i++) {
@@ -40,6 +40,13 @@ void Sphere::init(int prec) {
 			vertices[i * (prec + 1) + j] = glm::vec3(x, y, z);
 			texCoords[i * (prec + 1) + j] = glm::vec2(((float) j / prec), ((float) i / prec));
 			normals[i * (prec + 1) + j] = glm::vec3(x, y, z);
+
+			// calculate tangent vector
+			if (((x == 0) && (y == 1) && (z == 0)) || ((x == 0) && (y == -1) && (z == 0))) {   // if north or south pole,
+				tangents[i * (prec + 1) + j] = glm::vec3(0.0f, 0.0f, -1.0f);                   // set tangent to -Z axis
+			} else {  // otherwise, calculate tangent
+				tangents[i * (prec + 1) + j] = glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(x, y, z));
+			}
 		}
 	}
 
@@ -74,4 +81,7 @@ std::vector<glm::vec2> Sphere::getTexCoords() {
 }
 std::vector<glm::vec3> Sphere::getNormals() {
 	return normals;
+}
+std::vector<glm::vec3> Sphere::getTangents() {
+	return tangents;
 }

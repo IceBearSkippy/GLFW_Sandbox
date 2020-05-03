@@ -3,6 +3,7 @@ in vec3 varyingNormal;
 in vec3 varyingLightDir;
 in vec3 varyingVertPos;
 in vec3 varyingHalfVector;
+in vec3 varyingTangent;
 in vec2 textureCoords;
 in vec4 shadow_coord;
 in vec3 originalVertex;
@@ -32,12 +33,14 @@ uniform mat4 mv_matrix;
 uniform mat4 proj_matrix;
 uniform mat4 norm_matrix;
 
-layout (binding = 0) uniform sampler2D samp;
-layout (binding = 1) uniform sampler2DShadow shTex;
-layout (binding = 2) uniform samplerCube tex_map;
+layout (binding = 0) uniform sampler2D norm_map;
+layout (binding = 1) uniform sampler2DShadow shadow_map;
+layout (binding = 2) uniform samplerCube sky_map;
+layout (binding = 3) uniform sampler2D tex_map;
+
 
 float lookup(float ox, float oy) {
-	float f = textureProj(shTex,
+	float f = textureProj(shadow_map,
 		shadow_coord + vec4(ox * 0.001 * shadow_coord.w, oy * 0.001 * shadow_coord.w,
 		-0.01, 0.0)); // the third parameter (-0.01) is an offset to conteract shadow acne
 		return f;
@@ -87,33 +90,47 @@ vec3 generateNormalBumps(vec3 originalVertex, vec3 varyingNormal) {
 	return N;
 }
 
+vec3 calcNewNormal() {
+	vec3 normal = normalize(varyingNormal);
+	vec3 tangent = normalize(varyingTangent);
+	tangent = normalize(tangent - dot(tangent, normal) * normal);  // tangent is perpendicular to normal
+	vec3 bitangent = cross(tangent, normal);
+	mat3 tbn = mat3(tangent, bitangent, normal);  // TBN matrix to convert to camera space
+	vec3 retrievedNormal = texture(norm_map, textureCoords).xyz;
+	retrievedNormal = retrievedNormal * 2.0 - 1.0; 
+	vec3 newNormal = tbn * retrievedNormal;
+	newNormal = normalize(newNormal);
+	return newNormal;
+}
+
 void main(void) {
 	
 	// normalize the light, normal and view vectors
 	vec3 L = normalize(varyingLightDir);
 	//vec3 N = normalize(varyingNormal);
-	vec3 N = generateNormalBumps(originalVertex, varyingNormal);
+	//vec3 N = generateNormalBumps(originalVertex, varyingNormal);
+	vec3 N = calcNewNormal();
 	vec3 V = normalize(varyingVertPos);
 	vec3 H = normalize(varyingHalfVector);
 
-	
+	float cosTheta = dot(L,N);
+	float cosPhi = dot(H,N);
 
 	float shadowFactor = shadowSample();
 	vec4 shadowColor = globalAmbient * material.ambient * light.ambient * material.ambient;
-	
 	// this uses the sampler to get the color related multiply to lightedColor to add texture
-	vec4 texColor = texture(samp, textureCoords);
+	vec4 texel = texture(tex_map, textureCoords);
 	
-	vec4 lightedColor = light.diffuse * material.diffuse * max(dot(L,N), 0.0) 
+	vec4 lightedColor = texel * (light.diffuse * material.diffuse * max(cosTheta, 0.0) 
 						+ light.specular  * material.specular 
-						* pow(max(dot(H, N), 0.0), material.shininess * 3.0);
-	fragColor = vec4((shadowColor.xyz + shadowFactor * (lightedColor.xyz)), 1.0);
+						* pow(max(cosPhi, 0.0), material.shininess));
+	fragColor =  vec4((shadowColor.xyz + shadowFactor * (lightedColor.xyz)), 1.0);
 	
-	//fragColor += texColor; // this will enable texture
+	//fragColor += texel; // this will enable texture
 
 	// adds reflection layer to color (based on cubemap)
-	//vec3 r = -reflect(normalize(-varyingVertPos), normalize(varyingNormal));
-	//fragColor += texture(tex_map, r);
+	//vec3 r = -reflect(normalize(-varyingVertPos), N);
+	//fragColor += texture(sky_map, r);
 	
 }
 

@@ -29,7 +29,7 @@
 using namespace std;
 
 #define numVAOs 1
-#define numVBOs 14
+#define numVBOs 16
 
 GLuint renderingProgram, shadowProgram, skyboxProgram;
 GLuint vao[numVAOs];
@@ -38,7 +38,8 @@ GLuint vbo[numVBOs];
 Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
 GLuint brickTexture, whiteTexture, skyboxTexture;
-GLuint mvLoc, projLoc, nLoc, sLoc;
+GLuint emptyNormalTexture, brickNormalTexture;
+GLuint mvLoc, projLoc, nLoc, sLoc, tLoc;
 int width, height;
 float aspect;
 
@@ -87,7 +88,7 @@ void setupLightAndMaterials(glm::mat4 vMatrix, float* matAmb, float* matDif, flo
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
-int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex);
+int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, vector<glm::vec3> tan, int numVertices, int vboIndex);
 int bindSimpleCubeObject(int vboIndex);
 
 void setupVertices(void) {
@@ -101,21 +102,24 @@ void setupVertices(void) {
     vector<glm::vec3> vert = mySphere.getVertices();
     vector<glm::vec2> tex = mySphere.getTexCoords();
     vector<glm::vec3> norm = mySphere.getNormals();
+    vector<glm::vec3> tan = mySphere.getTangents();
+
     int numVertices = mySphere.getNumVertices();
     int vboIndex = 0;
     int vaoIndex = 0;
-    // vbos 0-3 vert, tex, norm, ind
-    vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
+    // vbos 0-4 vert, tex, norm, tan, ind
+    vboIndex = bindProceduralObject(ind, vert, tex, norm, tan, numVertices, vboIndex);
     
     ind = myTorus.getIndices();
     vert = myTorus.getVertices();
     tex = myTorus.getTexCoords();
     norm = myTorus.getNormals();
+    tan = myTorus.getTtangents();
     numVertices = myTorus.getNumVertices();
-    // vbos  4-7 vert, tex, norm, ind
-    vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
+    // vbos  5-8 vert, tex, norm, tan, ind
+    vboIndex = bindProceduralObject(ind, vert, tex, norm, tan, numVertices, vboIndex);
 
-    // vbos 8 - 9 vert, tex
+    // vbos 9 - 10 vert, tex
     vboIndex = bindSimpleCubeObject(vboIndex);
 }
 
@@ -181,10 +185,11 @@ int bindSimpleCubeObject(int vboIndex) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeTextureCoord), cubeTextureCoord, GL_STATIC_DRAW);
     return vboIndex;
 }
-int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex) {
+int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, vector<glm::vec3> tan, int numVertices, int vboIndex) {
     vector<float> pvalues; //vertex positions
     vector<float> tvalues; //texture coordinates
     vector<float> nvalues; //normal vectors
+    vector<float> tanvalues;
 
     for (int i = 0; i < numVertices; i++) {
         pvalues.push_back(vert[i].x);
@@ -197,6 +202,10 @@ int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::ve
         nvalues.push_back(norm[i].x);
         nvalues.push_back(norm[i].y);
         nvalues.push_back(norm[i].z);
+
+        tanvalues.push_back(tan[i].x);
+        tanvalues.push_back(tan[i].y);
+        tanvalues.push_back(tan[i].z);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
@@ -207,6 +216,9 @@ int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::ve
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
     glBufferData(GL_ARRAY_BUFFER, nvalues.size() * 4, &nvalues[0], GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
+    glBufferData(GL_ARRAY_BUFFER, tanvalues.size() * 4, &tanvalues[0], GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[vboIndex++]); // indices
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, ind.size() * 4, &ind[0], GL_STATIC_DRAW);
@@ -235,6 +247,10 @@ void init(GLFWwindow* window) {
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
     whiteTexture = Utils::loadTexture("./res/images/white.jpg");
     skyboxTexture = Utils::loadCubeMap("./res/images/skybox_demo");
+
+    brickNormalTexture = Utils::loadTexture("./res/images/brick1_normal.jpg");
+    emptyNormalTexture = Utils::loadTexture("./res/images/empty_normal.jpg");
+
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 
@@ -277,7 +293,7 @@ void displayPreShadow(double currentTime) {
     glUseProgram(shadowProgram);
     sLoc = glGetUniformLocation(shadowProgram, "shadowMVP");
 
-    //drawing sphere
+    //drawing sphere vbos 0-4 vert, tex, norm, tan, ind
     mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
     mMat *= Utils::buildTranslate(-5.0f, 1.0f, 3.0f);
     shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
@@ -293,7 +309,7 @@ void displayPreShadow(double currentTime) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[4]);
     glDrawElements(GL_TRIANGLES, mySphere.getNumIndices(), GL_UNSIGNED_INT, 0);
 
     // drawing torus one
@@ -306,7 +322,7 @@ void displayPreShadow(double currentTime) {
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
 
     // we only need to set up torus vertices buffer
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
@@ -315,8 +331,7 @@ void displayPreShadow(double currentTime) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     
-    // vbo[7] contains indices. We're just drawing that
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[9]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
 
@@ -325,7 +340,7 @@ void displayPreShadow(double currentTime) {
     shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
@@ -334,7 +349,7 @@ void displayPreShadow(double currentTime) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[9]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 }
 
@@ -347,7 +362,7 @@ void displaySkybox(double currentTime) {
 
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[10]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
@@ -398,8 +413,7 @@ void displayPostShadow(double currentTime) {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0); // the 2 specifies "coordinates" in vbo. 2 is needed for textures
     glEnableVertexAttribArray(1);
 
-    glActiveTexture(GL_TEXTURE0); // layout (binding = 0) uniform sampler2D samp ---- could send incremently (GL_TEXTURE0 + 1)
-    glBindTexture(GL_TEXTURE_2D, whiteTexture);
+    
     glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
@@ -408,15 +422,28 @@ void displayPostShadow(double currentTime) {
     //glActiveTexture(GL_TEXTURE2);
     //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
 
+    //binding 3 -- texture
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, whiteTexture);
+
+    //vbo 3 is tangent
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(3);
+
+    glActiveTexture(GL_TEXTURE0); // norm_map must be set at 0
+    glBindTexture(GL_TEXTURE_2D, emptyNormalTexture);
+
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[3]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[4]);
     glDrawElements(GL_TRIANGLES, mySphere.getNumIndices(), GL_UNSIGNED_INT, 0);
     mvStack.pop();
 
     // -------------------------- building draw matrix for torus 1-----------------
+    //vbos 5 - 9 vert, tex, norm, tan, ind
     mvStack.push(mvStack.top());
     mMat = Utils::buildTranslate(-0.5f, -0.5f, 0.0f);
     mMat *= Utils::buildRotateZ(-0.7f);
@@ -435,20 +462,18 @@ void displayPostShadow(double currentTime) {
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
     //bind the related texture immediately after
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
 
-    //specify texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
@@ -456,12 +481,25 @@ void displayPostShadow(double currentTime) {
     //glActiveTexture(GL_TEXTURE2);
     //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
 
+    //binding 3 for texture
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+
+    //vbo 8 is tangents
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(3);
+
+    //specify normal texture
+    glActiveTexture(GL_TEXTURE0); // norm_map must be set at 0
+    glBindTexture(GL_TEXTURE_2D, brickNormalTexture);
+
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[9]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
     // -------------------------- building draw matrix for torus 2---------------------
@@ -484,33 +522,42 @@ void displayPostShadow(double currentTime) {
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
-    //bind the related texture immediately after
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
 
-    //specify texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
-    // binding 2 -- skybox reflection
+    // binding 2 -- skybox reflection 
     //glActiveTexture(GL_TEXTURE2);
     //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+
+    //binding 3 for texture
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(3);
+
+    //specify normal texture
+    glActiveTexture(GL_TEXTURE0); // norm_map must be set at 0
+    glBindTexture(GL_TEXTURE_2D, brickNormalTexture);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[7]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[9]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
 
@@ -539,7 +586,7 @@ int main(void) {
     //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(600, 600, "Chapter 6", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(600, 600, "Sandbox window", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     // mouse and keys configurations
