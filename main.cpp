@@ -88,6 +88,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
 int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex);
+int bindSimpleCubeObject(int vboIndex);
 
 void setupVertices(void) {
     //create vao and vbos needed
@@ -103,20 +104,45 @@ void setupVertices(void) {
     int numVertices = mySphere.getNumVertices();
     int vboIndex = 0;
     int vaoIndex = 0;
-    // vbos 0-3
+    // vbos 0-3 vert, tex, norm, ind
     vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
     
-
     ind = myTorus.getIndices();
     vert = myTorus.getVertices();
     tex = myTorus.getTexCoords();
     norm = myTorus.getNormals();
     numVertices = myTorus.getNumVertices();
-    // vbos  4-7
+    // vbos  4-7 vert, tex, norm, ind
     vboIndex = bindProceduralObject(ind, vert, tex, norm, numVertices, vboIndex);
 
+    // vbos 8 - 9 vert, tex
+    vboIndex = bindSimpleCubeObject(vboIndex);
+}
 
-    // Cube vertices (vbo 8 - 9)
+void setupShadowBuffers(GLFWwindow* window) {
+    glfwGetFramebufferSize(window, &width, &height);
+    screenSizeX = width;
+    screenSizeY = height;
+
+    //create the custom frame buffer
+    glGenFramebuffers(1, &shadowBuffer);
+
+    // create the shadow texture and configure it to hold depth information
+    glGenTextures(1, &shadowTex);
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, screenSizeX, screenSizeY, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+
+    //avoid peter panning:
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+}
+
+int bindSimpleCubeObject(int vboIndex) {
     float cubeVertexPositions[108] = {
         -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f,
         1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f,
@@ -152,31 +178,8 @@ void setupVertices(void) {
     };
     //set up buffers for cube and scene objects
     glBindBuffer(GL_ARRAY_BUFFER, vbo[vboIndex++]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertexPositions), cubeTextureCoord, GL_STATIC_DRAW);
-    
-}
-
-void setupShadowBuffers(GLFWwindow* window) {
-    glfwGetFramebufferSize(window, &width, &height);
-    screenSizeX = width;
-    screenSizeY = height;
-
-    //create the custom frame buffer
-    glGenFramebuffers(1, &shadowBuffer);
-
-    // create the shadow texture and configure it to hold depth information
-    glGenTextures(1, &shadowTex);
-    glBindTexture(GL_TEXTURE_2D, shadowTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, screenSizeX, screenSizeY, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-
-    //avoid peter panning:
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeTextureCoord), cubeTextureCoord, GL_STATIC_DRAW);
+    return vboIndex;
 }
 int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::vec2> tex, vector<glm::vec3> norm, int numVertices, int vboIndex) {
     vector<float> pvalues; //vertex positions
@@ -215,7 +218,7 @@ void init(GLFWwindow* window) {
 
     renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
     shadowProgram = Utils::createShaderProgram("./res/shaders/shadow.vert", "./res/shaders/shadow.frag");
-    skyboxProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.frag");
+    skyboxProgram = Utils::createShaderProgram("./res/shaders/cubemap.vert", "./res/shaders/cubemap.frag");
 
     setupVertices();
     setupShadowBuffers(window);
@@ -231,7 +234,8 @@ void init(GLFWwindow* window) {
     currentLightPos = lightEye.GetPosition(); //<-- if you want a static position light position
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
     whiteTexture = Utils::loadTexture("./res/images/white.jpg");
-    skyboxTexture = Utils::loadTexture("./res/images/skybox_night_sky.jpg");
+    skyboxTexture = Utils::loadCubeMap("./res/images/skybox_demo");
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 
 
@@ -255,7 +259,7 @@ void display(GLFWwindow* window, double currentTime) {
 
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0f, 4.0f); // adjust this for shadows
-    displayPreShadow(currentTime); // first pas
+    displayPreShadow(currentTime); // first pass
 
     glDisable(GL_POLYGON_OFFSET_FILL);
     //restore the default display buffer and re-enable drawing
@@ -338,38 +342,23 @@ void displaySkybox(double currentTime) {
     glUseProgram(skyboxProgram);
 
     // get the uniform variables for MV and projection matrices
-    mvLoc = glGetUniformLocation(skyboxProgram, "mv_matrix");
+    mvLoc = glGetUniformLocation(skyboxProgram, "v_matrix");
     projLoc = glGetUniformLocation(skyboxProgram, "proj_matrix");
 
-    //vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
-    vMat = camera.GetViewMatrix();
-    mvStack.push(vMat);
-
-    //---- building skybox
-    mvStack.push(mvStack.top());
-    mMat = Utils::buildTranslate(camera.GetPosition().x, camera.GetPosition().y, camera.GetPosition().z);
-    mvStack.top() *= mMat;
-
-    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(mvStack.top()));
+    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[9]);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
-
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, skyboxTexture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture); 
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);    // cube has CW winding order, but we are viewing its interior
-
     glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glEnable(GL_DEPTH_TEST);
-    mvStack.pop();
 }
 
 void displayPostShadow(double currentTime) {

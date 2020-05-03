@@ -17,8 +17,9 @@ using namespace glm;
 
 namespace Utils {
     
-    //Soil2 helper
+    //Soil2 helperx
     GLuint loadTexture(const char* texImagePath);
+    GLuint loadCubeMap(const char* mapDir);
 
     //shader/error handler
     string readShaderSource(const char* filePath);
@@ -66,6 +67,34 @@ namespace Utils {
         //float redColor[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
         //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, redColor); 
         return textureID;
+    }
+
+    GLuint loadCubeMap(const char* mapDir) {
+        GLuint textureRef;
+
+        //assumes that the six texture image files are named xp, xn, yp, yn, zp, zn and are JPG
+        string xp = mapDir; xp = xp + "/xp.jpg";
+        string xn = mapDir; xn = xn + "/xn.jpg";
+        string yp = mapDir; yp = yp + "/yp.jpg";
+        string yn = mapDir; yn = yn + "/yn.jpg";
+        string zp = mapDir; zp = zp + "/zp.jpg";
+        string zn = mapDir; zn = zn + "/zn.jpg";
+
+        textureRef = SOIL_load_OGL_cubemap(xp.c_str(), xn.c_str(), yp.c_str(), yn.c_str(),
+            zp.c_str(), zn.c_str(), SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+        if (textureRef == 0) {
+            cout << "Didn't find a cube map image file" << endl;
+        }
+
+        glBindTexture(GL_TEXTURE_CUBE_MAP, textureRef);
+
+        // reduce seams
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        return textureRef;
     }
 
     string readShaderSource(const char* filePath) {
