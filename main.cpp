@@ -393,18 +393,19 @@ void displayPostShadow(double currentTime) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0); // the 2 specifies "coordinates" in vbo. 2 is needed for textures
-    glEnableVertexAttribArray(1);
+    
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0); // the 2 specifies "coordinates" in vbo. 2 is needed for textures
+    //glEnableVertexAttribArray(1);
 
-    //specify texture
-    glActiveTexture(GL_TEXTURE0); // layout (binding = 0) uniform sampler2D samp ---- could send incremently (GL_TEXTURE0 + 1)
-    glBindTexture(GL_TEXTURE_2D, whiteTexture);
+    //glActiveTexture(GL_TEXTURE0); // layout (binding = 0) uniform sampler2D samp ---- could send incremently (GL_TEXTURE0 + 1)
+    //glBindTexture(GL_TEXTURE_2D, whiteTexture);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -438,17 +439,20 @@ void displayPostShadow(double currentTime) {
     glEnableVertexAttribArray(0);
 
     //bind the related texture immediately after
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
+    //glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(1);
 
     //specify texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, brickTexture);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -483,17 +487,20 @@ void displayPostShadow(double currentTime) {
     glEnableVertexAttribArray(0);
 
     //bind the related texture immediately after
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
+    //glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(1);
 
     //specify texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, brickTexture);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);

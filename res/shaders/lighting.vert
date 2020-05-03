@@ -33,6 +33,7 @@ uniform mat4 shadowMVP;
 
 layout (binding = 0) uniform sampler2D samp;
 layout (binding = 1) uniform sampler2DShadow shTex;
+layout (binding = 2) uniform samplerCube tex_map;
 void main(void) {
 	// output vertex position, light direction and normal to the rasterizer for interpolation
 	varyingVertPos = (mv_matrix * vec4(vertPos, 1.0)).xyz;

@@ -32,7 +32,7 @@ uniform mat4 norm_matrix;
 
 layout (binding = 0) uniform sampler2D samp;
 layout (binding = 1) uniform sampler2DShadow shTex;
-
+layout (binding = 2) uniform samplerCube tex_map;
 float lookup(float ox, float oy)
 {
 	float f = textureProj(shTex,
@@ -79,5 +79,9 @@ void main(void) {
 						+ light.specular  * material.specular 
 						* pow(max(dot(H, N), 0.0), material.shininess * 3.0);
 	fragColor = vec4((shadowColor.xyz + shadowFactor * (lightedColor.xyz)), 1.0);
+
+	// adds reflection layer to color (based on cubemap)
+	vec3 r = -reflect(normalize(-varyingVertPos), normalize(varyingNormal));
+	fragColor = fragColor + texture(tex_map, r);
 	
 }
