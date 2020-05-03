@@ -9,6 +9,8 @@ out vec3 varyingVertPos;   // vertex position in eye space
 out vec3 varyingHalfVector;
 out vec2 textureCoords;
 out vec4 shadow_coord;
+out vec3 originalVertex;
+
 struct PositionalLight
 {
 	vec4 ambient;
@@ -35,6 +37,9 @@ layout (binding = 0) uniform sampler2D samp;
 layout (binding = 1) uniform sampler2DShadow shTex;
 layout (binding = 2) uniform samplerCube tex_map;
 void main(void) {
+	// keep the original vertices
+	originalVertex = vertPos;
+
 	// output vertex position, light direction and normal to the rasterizer for interpolation
 	varyingVertPos = (mv_matrix * vec4(vertPos, 1.0)).xyz;
 	varyingLightDir = light.position - varyingVertPos;
