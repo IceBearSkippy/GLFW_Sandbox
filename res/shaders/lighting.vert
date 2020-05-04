@@ -39,8 +39,14 @@ layout (binding = 0) uniform sampler2D norm_map; // bind norm_map as texture
 layout (binding = 1) uniform sampler2DShadow shadow_map;
 layout (binding = 2) uniform samplerCube sky_map;
 layout (binding = 3) uniform sampler2D tex_map;
+layout (binding = 4) uniform sampler2D height_map;
 
 void main(void) {
+	// "p" is the vertex position altered by the height map
+	// Since the height map is grayscale, any of the color components can be
+	// used (we use "r"). Dividing by 5.0 is to adjust the height
+	vec4 p = vec4((vertNormal * ((texture(height_map, texCoord).r) / 5.0)), 1.0);
+
 	// keep the original vertices
 	originalVertex = vertPos;
 
@@ -53,7 +59,7 @@ void main(void) {
 	varyingHalfVector = (varyingLightDir + (-varyingVertPos)).xyz;
 	shadow_coord = shadowMVP * vec4(vertPos, 1.0);
 	textureCoords = texCoord;
-
-	gl_Position = proj_matrix * mv_matrix * vec4(vertPos, 1.0);
+	
+	gl_Position = proj_matrix * mv_matrix * vec4(vertPos, 1.0) + p;
 
 }

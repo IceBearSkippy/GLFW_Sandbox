@@ -39,6 +39,7 @@ Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
 GLuint brickTexture, whiteTexture, skyboxTexture;
 GLuint emptyNormalTexture, brickNormalTexture;
+GLuint brickHeightTexture;
 GLuint mvLoc, projLoc, nLoc, sLoc, tLoc;
 int width, height;
 float aspect;
@@ -251,6 +252,8 @@ void init(GLFWwindow* window) {
     brickNormalTexture = Utils::loadTexture("./res/images/brick1_normal.jpg");
     emptyNormalTexture = Utils::loadTexture("./res/images/empty_normal.jpg");
 
+    brickHeightTexture = Utils::loadTexture("./res/images/brick1_height.jpg");
+
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 
@@ -418,14 +421,6 @@ void displayPostShadow(double currentTime) {
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
-    // binding 2 -- skybox reflection
-    //glActiveTexture(GL_TEXTURE2);
-    //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
-
-    //binding 3 -- texture
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, whiteTexture);
-
     //vbo 3 is tangent
     glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -433,6 +428,18 @@ void displayPostShadow(double currentTime) {
 
     glActiveTexture(GL_TEXTURE0); // norm_map must be set at 0
     glBindTexture(GL_TEXTURE_2D, emptyNormalTexture);
+
+    // binding 2 -- skybox reflection
+    //glActiveTexture(GL_TEXTURE2);
+    //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+    //binding 3 -- texture
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, whiteTexture);
+
+    //glActiveTexture(GL_TEXTURE4);
+    //glBindTexture(GL_TEXTURE_2D, emptyNormalTexture);
+
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -477,13 +484,7 @@ void displayPostShadow(double currentTime) {
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
-    // binding 2 -- skybox reflection 
-    //glActiveTexture(GL_TEXTURE2);
-    //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
 
-    //binding 3 for texture
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
 
     //vbo 8 is tangents
     glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
@@ -493,6 +494,18 @@ void displayPostShadow(double currentTime) {
     //specify normal texture
     glActiveTexture(GL_TEXTURE0); // norm_map must be set at 0
     glBindTexture(GL_TEXTURE_2D, brickNormalTexture);
+
+    // binding 2 -- skybox reflection 
+    //glActiveTexture(GL_TEXTURE2);
+    //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+
+    //binding 3 for texture
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    
+    //binding 4 for height map
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, brickHeightTexture);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -536,13 +549,6 @@ void displayPostShadow(double currentTime) {
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
 
-    // binding 2 -- skybox reflection 
-    //glActiveTexture(GL_TEXTURE2);
-    //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
-
-    //binding 3 for texture
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -551,6 +557,18 @@ void displayPostShadow(double currentTime) {
     //specify normal texture
     glActiveTexture(GL_TEXTURE0); // norm_map must be set at 0
     glBindTexture(GL_TEXTURE_2D, brickNormalTexture);
+
+    // binding 2 -- skybox reflection 
+    //glActiveTexture(GL_TEXTURE2);
+    //glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+
+    //binding 3 for texture
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+
+    //binding 4 for height map
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, brickHeightTexture);
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
