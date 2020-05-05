@@ -26,6 +26,7 @@ namespace Utils {
     void printShaderLog(GLuint shader);
     bool checkOpenGLError();
     GLuint createShaderProgram(const char* vp, const char* fp);
+    GLuint createShaderProgram(const char* vp, const char* tCS, const char* tES, const char* fp);
 
     //helper functions
     float toRadians(float degrees);
@@ -191,6 +192,76 @@ namespace Utils {
             printShaderLog(vfProgram);
         }
         return vfProgram;
+    }
+
+    GLuint createShaderProgram(const char* vp, const char* tCS, const char* tES, const char* fp) {
+        GLint vertCompiled, tcCompiled, teCompiled, fragCompiled;
+        GLint linked;
+
+        string vertShaderStr = readShaderSource(vp);
+        string tcShaderStr = readShaderSource(tCS);
+        string teShaderStr = readShaderSource(tES);
+        string fragShaderStr = readShaderSource(fp);
+
+        const char* vertShaderSrc = vertShaderStr.c_str();
+        const char* tcShaderSrc = tcShaderStr.c_str();
+        const char* teShaderSrc = teShaderStr.c_str();
+        const char* fragShaderSrc = fragShaderStr.c_str();
+
+        GLuint vShader = glCreateShader(GL_VERTEX_SHADER);
+        GLuint tcShader = glCreateShader(GL_TESS_CONTROL_SHADER);
+        GLuint teShader = glCreateShader(GL_TESS_EVALUATION_SHADER);
+        GLuint fShader = glCreateShader(GL_FRAGMENT_SHADER);
+        
+        glShaderSource(vShader, 1, &vertShaderSrc, NULL);
+        glShaderSource(tcShader, 1, &tcShaderSrc, NULL);
+        glShaderSource(teShader, 1, &teShaderSrc, NULL);
+        glShaderSource(fShader, 1, &fragShaderSrc, NULL);
+
+        glCompileShader(vShader);
+        checkOpenGLError();
+        glGetShaderiv(vShader, GL_COMPILE_STATUS, &vertCompiled);
+        if (vertCompiled != 1) {
+            cout << "ERROR:::::::Vertex shader compilation failed" << endl;
+            printShaderLog(vShader);
+        }
+
+        glCompileShader(tcShader);
+        glGetShaderiv(tcShader, GL_COMPILE_STATUS, &tcCompiled);
+        if (tcCompiled != 1) {
+            cout << "ERROR:::::::Tesselation Control shader compilation failed" << endl;
+            printShaderLog(tcShader);
+        }
+
+        glCompileShader(teShader);
+        glGetShaderiv(teShader, GL_COMPILE_STATUS, &teCompiled);
+        if (teCompiled != 1) {
+            cout << "ERROR:::::::Tesselation Evaluation shader compilation failed" << endl;
+            printShaderLog(tcShader);
+        }
+
+        glCompileShader(fShader);
+        glGetShaderiv(fShader, GL_COMPILE_STATUS, &fragCompiled);
+        if (fragCompiled != 1) {
+            cout << "ERROR:::::::Fragment shader compilation failed" << endl;
+            printShaderLog(fShader);
+        }
+        GLuint vfProgram = glCreateProgram();
+
+        glAttachShader(vfProgram, vShader);
+        glAttachShader(vfProgram, tcShader);
+        glAttachShader(vfProgram, teShader);
+        glAttachShader(vfProgram, fShader);
+
+        glLinkProgram(vfProgram);
+        checkOpenGLError();
+        glGetProgramiv(vfProgram, GL_LINK_STATUS, &linked);
+        if (linked != 1) {
+            cout << "ERROR:::::::Linking failed" << endl;
+            printShaderLog(vfProgram);
+        }
+        return vfProgram;
+
     }
 
     float toRadians(float degrees) {

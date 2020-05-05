@@ -31,7 +31,7 @@ using namespace std;
 #define numVAOs 1
 #define numVBOs 16
 
-GLuint renderingProgram, shadowProgram, skyboxProgram;
+GLuint renderingProgram, shadowProgram, skyboxProgram, tesselationProgram;
 GLuint vao[numVAOs];
 GLuint vbo[numVBOs];
 
@@ -233,6 +233,8 @@ void init(GLFWwindow* window) {
     shadowProgram = Utils::createShaderProgram("./res/shaders/shadow.vert", "./res/shaders/shadow.frag");
     skyboxProgram = Utils::createShaderProgram("./res/shaders/cubemap.vert", "./res/shaders/cubemap.frag");
 
+    tesselationProgram = Utils::createShaderProgram("./res/shaders/practice.vert", "./res/shaders/practice.tesc", "./res/shaders/practice.tese", "./res/shaders/practice.frag");
+    //filetypes--- .geom .comp
     setupVertices();
     setupShadowBuffers(window);
     b = glm::mat4(
@@ -290,6 +292,20 @@ void display(GLFWwindow* window, double currentTime) {
     displaySkybox(currentTime);
 
     displayPostShadow(currentTime); // second pass
+
+
+    //TODO: debug basic tesselation program
+    glUseProgram(tesselationProgram);
+    
+    mvLoc = glGetUniformLocation(tesselationProgram, "mvp_matrix");
+    glPatchParameteri(GL_PATCH_VERTICES, 1);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(pMat * camera.GetViewMatrix() * Utils::buildTranslate(-2.0f, 2.0f, 0.0f)));
+    glDrawArrays(GL_PATCHES, 0, 1);
+
+    // this changes everything to draw back with triangles
+    //glPatchParameteri(GL_PATCH_VERTICES, 0);
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_TRIANGLES);
 }
 
 void displayPreShadow(double currentTime) {

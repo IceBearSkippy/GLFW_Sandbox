@@ -45,6 +45,7 @@ void main(void) {
 	// "p" is the vertex position altered by the height map
 	// Since the height map is grayscale, any of the color components can be
 	// used (we use "r"). Dividing by 5.0 is to adjust the height
+	//vec4 p = vec4(vertPos, 1.0) + vec4((vertNormal * ((texture(height_map, texCoord).r) / 5.0)), 1.0);
 	vec4 p = vec4((vertNormal * ((texture(height_map, texCoord).r) / 5.0)), 1.0);
 
 	// keep the original vertices
