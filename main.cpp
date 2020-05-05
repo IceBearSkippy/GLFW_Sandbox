@@ -263,7 +263,10 @@ void init(GLFWwindow* window) {
 void display(GLFWwindow* window, double currentTime) {
     glClear(GL_COLOR_BUFFER_BIT);
     glClear(GL_DEPTH_BUFFER_BIT);
-    
+
+    // this is default polygon mode - specify if needed
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
     //currentLightPos = camera.GetPosition(); // this simulates our camera as a "light" source
     // set up view and perspective matrix from the light point of view for displayPreShadow
     // lightVmatrix = glm::lookAt(currentLightPos, origin, up);
@@ -302,10 +305,6 @@ void display(GLFWwindow* window, double currentTime) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(pMat * camera.GetViewMatrix() * Utils::buildTranslate(-2.0f, 2.0f, 0.0f)));
     glDrawArrays(GL_PATCHES, 0, 1);
-
-    // this changes everything to draw back with triangles
-    //glPatchParameteri(GL_PATCH_VERTICES, 0);
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_TRIANGLES);
 }
 
 void displayPreShadow(double currentTime) {
