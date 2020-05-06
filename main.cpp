@@ -263,8 +263,8 @@ void init(GLFWwindow* window) {
 void display(GLFWwindow* window, double currentTime) {
     glClear(GL_COLOR_BUFFER_BIT);
     glClear(GL_DEPTH_BUFFER_BIT);
-
-    // this is default polygon mode - specify if needed
+    
+    //oprtional - GL_FILL is default
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     //currentLightPos = camera.GetPosition(); // this simulates our camera as a "light" source
@@ -296,15 +296,17 @@ void display(GLFWwindow* window, double currentTime) {
 
     displayPostShadow(currentTime); // second pass
 
-
-    //TODO: debug basic tesselation program
     glUseProgram(tesselationProgram);
-    
+
     mvLoc = glGetUniformLocation(tesselationProgram, "mvp_matrix");
-    glPatchParameteri(GL_PATCH_VERTICES, 1);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(pMat * camera.GetViewMatrix() * Utils::buildTranslate(-2.0f, 2.0f, 0.0f)));
-    glDrawArrays(GL_PATCHES, 0, 1);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    glFrontFace(GL_CCW);
+    
+    glPatchParameteri(GL_PATCH_VERTICES, 16);  // number of vertices per patch = 16
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glDrawArrays(GL_PATCHES, 0, 16);
 }
 
 void displayPreShadow(double currentTime) {
