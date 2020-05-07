@@ -9,14 +9,23 @@ in vec2 tc[];
 out vec2 tcs_out[];
 
 void main(void) {
-	int TL = 32; // tesselation levels are all set to this value
+	float subdivisions = 16.0;    // tunable constant based on density of detail in height map
+
 	if (gl_InvocationID == 0) {
-		gl_TessLevelOuter[0] = TL;
-		gl_TessLevelOuter[1] = TL;
-		gl_TessLevelOuter[2] = TL;
-		gl_TessLevelOuter[3] = TL;
-		gl_TessLevelInner[0] = TL;
-		gl_TessLevelInner[1] = TL;
+		vec4 p0 = mvp_matrix * gl_in[0].gl_Position;
+		vec4 p1 = mvp_matrix * gl_in[1].gl_Position;
+		vec4 p2 = mvp_matrix * gl_in[2].gl_Position;
+		p0 = p0 / p0.w;
+		p1 = p1 / p1.w;
+		p2 = p2 / p2.w;
+		float width = length(p2.xy - p0.xy) * subdivisions + 1.0; // perceived "width" of tess grid
+		float height = length(p1.xy - p0.xy) * subdivisions + 1.0; // perceived "height" of tess grid
+		gl_TessLevelOuter[0] = height;  // set tess levels based on perceived side lengths
+		gl_TessLevelOuter[1] = width;
+		gl_TessLevelOuter[2] = height;
+		gl_TessLevelOuter[3] = width;
+		gl_TessLevelInner[0] = width;
+		gl_TessLevelInner[1] = height;
 	}
 	// forward the texture and control points to the TES
 	tcs_out[gl_InvocationID] = tc[gl_InvocationID];

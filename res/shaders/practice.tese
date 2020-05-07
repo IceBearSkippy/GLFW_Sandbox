@@ -1,6 +1,7 @@
 #version 430
 
-layout (quads, equal_spacing, ccw) in;
+//layout (quads, equal_spacing, ccw) in; -- this causes objects to wiggle/pop when moving
+layout (quads, fractional_even_spacing) in;
 uniform mat4 mvp_matrix;
 
 in vec2 tcs_out[];    // texture coordinate array coming in
