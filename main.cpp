@@ -37,7 +37,7 @@ GLuint vbo[numVBOs];
 
 Sphere mySphere(48);
 Torus myTorus(0.5f, 0.2f, 48);
-GLuint brickTexture, whiteTexture, skyboxTexture;
+GLuint brickTexture, whiteTexture, skyboxTexture, moonTexture;
 GLuint emptyNormalTexture, brickNormalTexture;
 GLuint brickHeightTexture;
 GLuint mvLoc, projLoc, nLoc, sLoc, tLoc;
@@ -249,13 +249,13 @@ void init(GLFWwindow* window) {
     currentLightPos = lightEye.GetPosition(); //<-- if you want a static position light position
     brickTexture = Utils::loadTexture("./res/images/brick1.jpg");
     whiteTexture = Utils::loadTexture("./res/images/white.jpg");
+    moonTexture = Utils::loadTexture("./res/images/moon_texture.jpg");
     skyboxTexture = Utils::loadCubeMap("./res/images/skybox_demo");
 
     brickNormalTexture = Utils::loadTexture("./res/images/brick1_normal.jpg");
     emptyNormalTexture = Utils::loadTexture("./res/images/empty_normal.jpg");
-
-    brickHeightTexture = Utils::loadTexture("./res/images/brick1_height.jpg");
-
+    brickHeightTexture = Utils::loadTexture("./res/images/brick1_height.jpg"); // height texture not loading(?)
+    
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 
@@ -301,12 +301,14 @@ void display(GLFWwindow* window, double currentTime) {
     mvLoc = glGetUniformLocation(tesselationProgram, "mvp_matrix");
     glUniformMatrix4fv(mvLoc, 1, GL_FALSE, glm::value_ptr(pMat * camera.GetViewMatrix() * Utils::buildTranslate(-2.0f, 2.0f, 0.0f)));
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, brickTexture);
+    glBindTexture(GL_TEXTURE_2D, moonTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, moonTexture); // this should be height map
     glFrontFace(GL_CCW);
     
-    glPatchParameteri(GL_PATCH_VERTICES, 16);  // number of vertices per patch = 16
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glDrawArrays(GL_PATCHES, 0, 16);
+    glPatchParameteri(GL_PATCH_VERTICES, 4); 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glDrawArraysInstanced(GL_PATCHES, 0, 4, 64*64);
 }
 
 void displayPreShadow(double currentTime) {
