@@ -229,7 +229,7 @@ int bindProceduralObject(vector<int> ind, vector<glm::vec3> vert, vector<glm::ve
 
 void init(GLFWwindow* window) {
 
-    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.frag");
+    renderingProgram = Utils::createShaderProgram("./res/shaders/lighting.vert", "./res/shaders/lighting.geom", "./res/shaders/lighting.frag");
     shadowProgram = Utils::createShaderProgram("./res/shaders/shadow.vert", "./res/shaders/shadow.frag");
     skyboxProgram = Utils::createShaderProgram("./res/shaders/cubemap.vert", "./res/shaders/cubemap.frag");
 
@@ -317,7 +317,7 @@ void displayPreShadow(double currentTime) {
 
     //drawing sphere vbos 0-4 vert, tex, norm, tan, ind
     mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
-    mMat *= Utils::buildTranslate(-5.0f, 1.0f, 3.0f);
+    mMat *= Utils::buildTranslate(0.0f, 4.0f, -7.0f);
     shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
     // we only need to set up sphere vertices buffer
@@ -358,7 +358,7 @@ void displayPreShadow(double currentTime) {
 
 
     // drawing torus two
-    mMat = Utils::buildTranslate(1.0f, -0.5f, 0.0f);
+    mMat = Utils::buildTranslate(1.0f, -1.2f, 0.0f);
     shadowMVP1 = lightPmatrix * lightVmatrix * mMat;
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP1));
 
@@ -415,7 +415,7 @@ void displayPostShadow(double currentTime) {
     
     mvStack.push(mvStack.top());
     mMat = Utils::buildScale(0.1f, 0.1f, 0.1f);
-    mMat *= Utils::buildTranslate(-5.0f, 1.0f, 3.0f);
+    mMat *= Utils::buildTranslate(0.0f, 4.0f, -7.0f);
     shadowMVP2 = b * lightPmatrix * lightVmatrix * mMat;
     mvStack.top() *= mMat;
 
@@ -538,7 +538,7 @@ void displayPostShadow(double currentTime) {
     mvStack.pop();
 
     mvStack.push(mvStack.top());
-    mMat = Utils::buildTranslate(1.0f, -0.5f, 0.0f);
+    mMat = Utils::buildTranslate(1.0f, -1.2f, 0.0f);
     shadowMVP2 = b * lightPmatrix * lightVmatrix * mMat;
     mvStack.top() *= mMat;
 

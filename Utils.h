@@ -193,6 +193,69 @@ namespace Utils {
         }
         return vfProgram;
     }
+    GLuint createShaderProgram(const char* vp, const char* gp, const char* fp) {
+        GLint vertCompiled;
+        GLint geomCompiled;
+        GLint fragCompiled;
+        GLint linked;
+
+        string vertShaderStr = readShaderSource(vp);
+        string geomShaderStr = readShaderSource(gp);
+        string fragShaderStr = readShaderSource(fp);
+
+        const char* vertShaderSrc = vertShaderStr.c_str();
+        const char* geomShaderSrc = geomShaderStr.c_str();
+        const char* fragShaderSrc = fragShaderStr.c_str();
+
+        GLuint vShader = glCreateShader(GL_VERTEX_SHADER);
+        GLuint gShader = glCreateShader(GL_GEOMETRY_SHADER);
+        GLuint fShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+        glShaderSource(vShader, 1, &vertShaderSrc, NULL);
+        glShaderSource(gShader, 1, &geomShaderSrc, NULL);
+        glShaderSource(fShader, 1, &fragShaderSrc, NULL);
+
+        glCompileShader(vShader);
+        //check for errors after compiling each shader
+        checkOpenGLError();
+        glGetShaderiv(vShader, GL_COMPILE_STATUS, &vertCompiled);
+        if (vertCompiled != 1) {
+            cout << "ERROR:::::::Vertex compilation failed" << endl;
+            printShaderLog(vShader);
+        }
+
+        glCompileShader(gShader);
+        //check for errors after compiling each shader
+        checkOpenGLError();
+        glGetShaderiv(gShader, GL_COMPILE_STATUS, &geomCompiled);
+        if (geomCompiled != 1) {
+            cout << "ERROR:::::::Geometry compilation failed" << endl;
+            printShaderLog(gShader);
+        }
+
+
+        glCompileShader(fShader);
+        glGetShaderiv(fShader, GL_COMPILE_STATUS, &fragCompiled);
+        if (fragCompiled != 1) {
+            cout << "ERROR:::::::Fragment compilation failed" << endl;
+            printShaderLog(fShader);
+        }
+        GLuint vfProgram = glCreateProgram();
+
+        glAttachShader(vfProgram, vShader);
+        glAttachShader(vfProgram, gShader);
+        glAttachShader(vfProgram, fShader);
+
+        glLinkProgram(vfProgram);
+        checkOpenGLError();
+        glGetProgramiv(vfProgram, GL_LINK_STATUS, &linked);
+        if (linked != 1) {
+            cout << "ERROR:::::::Linking failed" << endl;
+            printShaderLog(vfProgram);
+        }
+        return vfProgram;
+
+    }
 
     GLuint createShaderProgram(const char* vp, const char* tCS, const char* tES, const char* fp) {
         GLint vertCompiled, tcCompiled, teCompiled, fragCompiled;
