@@ -44,7 +44,7 @@ GLuint mvLoc, projLoc, nLoc, sLoc, tLoc;
 int width, height;
 float aspect;
 
-GLuint globalAmbLoc, ambLoc, diffLoc, specLoc, posLoc, mAmbLoc, mDiffLoc, mSpecLoc, mShiLoc;
+GLuint globalAmbLoc, ambLoc, diffLoc, specLoc, posLoc, lLoc, mAmbLoc, mDiffLoc, mSpecLoc, mShiLoc;
 glm::mat4 pMat, vMat, mMat, mvMat, invTrMat;
 stack<glm::mat4> mvStack;
 glm::vec3 currentLightPos, lightPosV; //light position as Vec3f in both model and view space
@@ -406,6 +406,7 @@ void displayPostShadow(double currentTime) {
     projLoc = glGetUniformLocation(renderingProgram, "proj_matrix");
     nLoc = glGetUniformLocation(renderingProgram, "norm_matrix");
     sLoc = glGetUniformLocation(renderingProgram, "shadowMVP");
+    lLoc = glGetUniformLocation(renderingProgram, "enableLighting");
 
     //vMat = Utils::buildCameraLocation(cameraVec, cameraRotU, cameraRotV, cameraRotN);
     vMat = camera.GetViewMatrix();
@@ -427,6 +428,8 @@ void displayPostShadow(double currentTime) {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
+    glUniform1i(lLoc, 1);
+
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
@@ -487,6 +490,7 @@ void displayPostShadow(double currentTime) {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
+    glUniform1i(lLoc, 1);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -534,6 +538,10 @@ void displayPostShadow(double currentTime) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[9]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
+    glUniform1i(lLoc, 0);
+    glFrontFace(GL_CW);
+    glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
+
     // -------------------------- building draw matrix for torus 2---------------------
     mvStack.pop();
 
@@ -553,6 +561,7 @@ void displayPostShadow(double currentTime) {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(pMat));
     glUniformMatrix4fv(nLoc, 1, GL_FALSE, glm::value_ptr(invTrMat));
     glUniformMatrix4fv(sLoc, 1, GL_FALSE, glm::value_ptr(shadowMVP2));
+    glUniform1i(lLoc, 1);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -597,6 +606,9 @@ void displayPostShadow(double currentTime) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[9]);
     glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
+    glUniform1i(lLoc, 0);
+    glFrontFace(GL_CW);
+    glDrawElements(GL_TRIANGLES, myTorus.getNumIndices(), GL_UNSIGNED_INT, 0);
 
     while (!mvStack.empty()) {
         mvStack.pop();

@@ -34,6 +34,7 @@ uniform mat4 mv_matrix;
 uniform mat4 proj_matrix;
 uniform mat4 norm_matrix; // for transforming normals
 uniform mat4 shadowMVP;
+uniform int enableLighting;
 
 layout (binding = 0) uniform sampler2D norm_map; // bind norm_map as texture
 layout (binding = 1) uniform sampler2DShadow shadow_map;

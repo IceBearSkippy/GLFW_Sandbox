@@ -42,6 +42,7 @@ uniform mat4 mv_matrix;
 uniform mat4 proj_matrix;
 uniform mat4 norm_matrix; // for transforming normals
 uniform mat4 shadowMVP;
+uniform int enableLighting;
 
 layout (triangle_strip, max_vertices=3) out;
 layout (binding = 0) uniform sampler2D norm_map; // bind norm_map as texture
@@ -52,9 +53,10 @@ layout (binding = 4) uniform sampler2D height_map;
 
 
 void main (void) {
-	// move vertices along the normal and pass through the other vertex attributes unchanged
+	// average the three triangle vertex normals, creating a single triangle surface normal
+	vec4 triangleNormal = vec4(((varyingNormal[0] + varyingNormal[1] + varyingNormal[2]) / 3.0), 1.0);
 	for (int i=0; i<3; i++) {
-		gl_Position = gl_in[i].gl_Position + normalize(vec4(varyingNormal[i], 1.0)) * 0.5;
+		gl_Position = gl_in[i].gl_Position + normalize(triangleNormal) * 0.4;
 
 		varyingNormalG = varyingNormal[i];
 		varyingLightDirG = varyingLightDir[i];

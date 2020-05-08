@@ -33,6 +33,7 @@ uniform Material material;
 uniform mat4 mv_matrix;
 uniform mat4 proj_matrix;
 uniform mat4 norm_matrix;
+uniform int enableLighting;
 
 layout (binding = 0) uniform sampler2D norm_map;
 layout (binding = 1) uniform sampler2DShadow shadow_map;
@@ -125,7 +126,12 @@ void main(void) {
 	vec4 lightedColor = texel * (light.diffuse * material.diffuse * max(cosTheta, 0.0) 
 						+ light.specular  * material.specular 
 						* pow(max(cosPhi, 0.0), material.shininess));
-	fragColor =  vec4((shadowColor.xyz + shadowFactor * (lightedColor.xyz)), 1.0);
+	
+	if (enableLighting == 1) {
+		fragColor = vec4((shadowColor.xyz + shadowFactor * (lightedColor.xyz)), 1.0);
+	} else {
+		fragColor = vec4(lightedColor.xyz, 1.0);
+	}
 	
 	//fragColor += texel; // this will enable texture
 
